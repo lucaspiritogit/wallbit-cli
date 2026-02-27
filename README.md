@@ -39,8 +39,7 @@ On each new session, the app shows a masked API key input screen. Paste your Wal
 - `h`: hide/show balance amounts
 - `t`: hide/show transaction amounts
 - `left` / `right`: previous/next transactions page
-- `q`: quit
-- `esc` or `ctrl+c`: quit
+- `esc` or `ctrl+c` or `q`: quit
 
 ## Security disclosure
 
