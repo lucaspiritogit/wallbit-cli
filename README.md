@@ -19,22 +19,10 @@ Terminal dashboard for Wallbit.
 curl -fsSL https://raw.githubusercontent.com/lpirito/wallbit-cli/main/scripts/install.sh | sh
 ```
 
-Optional flags:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/lpirito/wallbit-cli/main/scripts/install.sh | sh -s -- --repo lpirito/wallbit-cli --version v0.1.0 --install-dir "$HOME/.local/bin"
-```
-
 ### Windows (PowerShell)
 
 ```powershell
 iwr https://raw.githubusercontent.com/lpirito/wallbit-cli/main/scripts/install.ps1 -OutFile install.ps1; ./install.ps1
-```
-
-Optional flags:
-
-```powershell
-./install.ps1 -Repo lpirito/wallbit-cli -Version v0.1.0 -InstallDir "$HOME\.local\bin"
 ```
 
 After install, run:
