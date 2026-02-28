@@ -11,9 +11,9 @@ export function HelpModal() {
             <br />
             <span fg="#D1D5DB">?           Toggle this help modal</span>
             <br />
-            <span fg="#D1D5DB">q / ctrl+c  Exit the CLI</span>
+            <span fg="#D1D5DB">ctrl+c      Exit the CLI</span>
             <br />
-            <span fg="#D1D5DB">esc         Close overlays or exit</span>
+            <span fg="#D1D5DB">esc         Close overlays</span>
             <br />
             <br />
             <span fg="#93C5FD">Dashboard</span>
@@ -25,6 +25,12 @@ export function HelpModal() {
             <span fg="#D1D5DB">t           Open assets modal</span>
             <br />
             <span fg="#D1D5DB">w           Open wallets modal</span>
+            <br />
+            <span fg="#D1D5DB">c           Focus agent chat</span>
+            <br />
+            <span fg="#D1D5DB">up/down     Scroll agent chat (focused)</span>
+            <br />
+            <span fg="#D1D5DB">pgup/pgdn   Faster chat scroll</span>
             <br />
             <br />
             <span fg="#93C5FD">Assets Modal</span>

@@ -3,7 +3,8 @@ import { createRoot } from "@opentui/react"
 import { App } from "./app"
 
 const renderer = await createCliRenderer({
-  exitOnCtrlC: false,
+  exitOnCtrlC: true,
+  targetFps: 30,
 })
 
 createRoot(renderer).render(<App />)

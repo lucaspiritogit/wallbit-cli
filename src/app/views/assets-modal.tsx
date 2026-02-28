@@ -4,6 +4,8 @@ import type { AssetsModalState } from "../types"
 
 type AssetsModalProps = {
   assetsModal: AssetsModalState
+  onSearchInputChange: (value: string) => void
+  onSearchSubmit: (value: string) => void
 }
 
 export function AssetsModal(props: AssetsModalProps) {
@@ -21,15 +23,29 @@ export function AssetsModal(props: AssetsModalProps) {
           </text>
         </box>
         <box marginTop={1}>
-          <text>
-            <span fg="#6B7280">
-              {props.assetsModal.searchMode
-                ? `/${props.assetsModal.searchInput}|`
-                : props.assetsModal.searchApplied.length > 0
+          {props.assetsModal.searchMode ? (
+            <input
+              focused
+              width={40}
+              value={props.assetsModal.searchInput}
+              placeholder="Search symbol or name"
+              maxLength={80}
+              textColor="#D1D5DB"
+              backgroundColor="#111827"
+              focusedBackgroundColor="#1F2937"
+              cursorColor="#93C5FD"
+              onInput={props.onSearchInputChange}
+              onSubmit={(value) => props.onSearchSubmit(typeof value === "string" ? value : props.assetsModal.searchInput)}
+            />
+          ) : (
+            <text>
+              <span fg="#6B7280">
+                {props.assetsModal.searchApplied.length > 0
                   ? `Filter: ${props.assetsModal.searchApplied}`
                   : "Press / to search by symbol or name"}
-            </span>
-          </text>
+              </span>
+            </text>
+          )}
         </box>
         <box marginTop={1} flexGrow={1}>
           {props.assetsModal.loading ? (

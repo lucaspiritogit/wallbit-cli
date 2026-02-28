@@ -1,14 +1,8 @@
 import { useKeyboard } from "@opentui/react"
 import type { Dispatch, SetStateAction } from "react"
 import { PAGINATION_THROTTLE_MS } from "../constants"
-import {
-  getNextWalletScrollOffset,
-  getPrintableText,
-  isHelpShortcut,
-  isThrottleWindowElapsed,
-} from "../helpers"
+import { getPrintableText, isHelpShortcut, isThrottleWindowElapsed } from "../helpers"
 import type { AppState, AssetsModalState, WalletsModalState } from "../types"
-import type { CryptoWallet } from "../../types/wallbit"
 
 type RendererLike = {
   destroy: () => void
@@ -26,11 +20,11 @@ type AppKeyEvent = {
 
 type UseAppKeyboardParams = {
   renderer: RendererLike
-  apiKey: string | null
-  apiKeyInput: string
-  setApiKey: Dispatch<SetStateAction<string | null>>
-  setApiKeyInput: Dispatch<SetStateAction<string>>
+  authMode: "wallbit" | "ai-provider" | null
+  authInput: string
+  setAuthInput: Dispatch<SetStateAction<string>>
   setAuthError: Dispatch<SetStateAction<string | null>>
+  submitAuthInput: () => Promise<void>
   helpModalOpen: boolean
   setHelpModalOpen: Dispatch<SetStateAction<boolean>>
   hideValues: boolean
@@ -40,21 +34,47 @@ type UseAppKeyboardParams = {
   setAssetsModal: Dispatch<SetStateAction<AssetsModalState>>
   walletsModal: WalletsModalState
   setWalletsModal: Dispatch<SetStateAction<WalletsModalState>>
-  sortedWallets: CryptoWallet[]
-  walletRowsPerPage: number
+  copySelectedWallet: (index: number) => void
   lastPaginationKeyAtRef: { current: number }
   loadTransactionsPage: (page: number) => Promise<void>
   loadAssetsPage: (page: number, searchQuery: string) => Promise<void>
   openAssetPreview: (symbol: string) => Promise<void>
+  chatFocused: boolean
+  setChatFocused: Dispatch<SetStateAction<boolean>>
+  chatEnabled: boolean
+  chatScrollOffset: number
+  setChatScrollOffset: Dispatch<SetStateAction<number>>
 }
 
 export function useAppKeyboard(params: UseAppKeyboardParams) {
   useKeyboard((key: AppKeyEvent) => {
     const keyName = key.name.toLowerCase()
-    const shouldExit = key.name === "q" || (key.ctrl && key.name === "c")
+    if (params.chatFocused) {
+      if (keyName === "escape") {
+        params.setChatFocused(false)
+        return
+      }
 
-    if (shouldExit) {
-      params.renderer.destroy()
+      if (keyName === "up") {
+        params.setChatScrollOffset((current) => current + 3)
+        return
+      }
+
+      if (keyName === "down") {
+        params.setChatScrollOffset((current) => Math.max(0, current - 3))
+        return
+      }
+
+      if (keyName === "pageup") {
+        params.setChatScrollOffset((current) => current + 12)
+        return
+      }
+
+      if (keyName === "pagedown") {
+        params.setChatScrollOffset((current) => Math.max(0, current - 12))
+        return
+      }
+
       return
     }
 
@@ -94,49 +114,52 @@ export function useAppKeyboard(params: UseAppKeyboardParams) {
       return
     }
 
-    if (key.name === "escape") {
-      params.renderer.destroy()
+    if (params.authMode !== null) {
+      if (params.authMode === "wallbit") {
+        if (keyName === "enter" || keyName === "return") {
+          void params.submitAuthInput()
+          return
+        }
+
+        if (keyName === "backspace" || keyName === "delete") {
+          params.setAuthInput((current) => current.slice(0, -1))
+          return
+        }
+
+        if (!key.ctrl && !key.meta && !key.option) {
+          const typedText = getPrintableText(key.sequence)
+          if (typedText.length > 0) {
+            params.setAuthInput((current) => current + typedText)
+            params.setAuthError(null)
+            return
+          }
+        }
+
+        return
+      }
+
       return
     }
 
-    if (params.apiKey === null) {
-      if (keyName === "enter" || keyName === "return") {
-        const enteredApiKey = params.apiKeyInput.trim()
-
-        if (enteredApiKey.length === 0) {
-          params.setAuthError("API key is required.")
-          return
-        }
-
-        params.setAuthError(null)
-        params.setApiKey(enteredApiKey)
-        return
-      }
-
-      if (keyName === "backspace" || keyName === "delete") {
-        params.setApiKeyInput((current) => current.slice(0, -1))
-        return
-      }
-
-      if (!key.ctrl && !key.meta && !key.option) {
-        const typedText = getPrintableText(key.sequence)
-        if (typedText.length > 0) {
-          params.setApiKeyInput((current) => current + typedText)
-          params.setAuthError(null)
-          return
-        }
-      }
-
+    if (
+      keyName === "c" &&
+      params.chatEnabled &&
+      params.state.status === "success" &&
+      !params.helpModalOpen &&
+      !params.assetsModal.open &&
+      !params.walletsModal.open &&
+      !params.chatFocused
+    ) {
+      params.setChatFocused(true)
       return
     }
 
     if (params.walletsModal.open && params.state.status === "success") {
       if (keyName === "down") {
-        const nextSelectedIndex = Math.min(params.walletsModal.selectedIndex + 1, Math.max(0, params.sortedWallets.length - 1))
+        const nextSelectedIndex = Math.min(params.walletsModal.selectedIndex + 1, Math.max(0, params.state.wallets.length - 1))
         params.setWalletsModal((current) => ({
           ...current,
           selectedIndex: nextSelectedIndex,
-          scrollOffset: getNextWalletScrollOffset(nextSelectedIndex, current.scrollOffset, params.walletRowsPerPage),
           status: {
             type: "idle",
             message: "",
@@ -150,7 +173,6 @@ export function useAppKeyboard(params: UseAppKeyboardParams) {
         params.setWalletsModal((current) => ({
           ...current,
           selectedIndex: nextSelectedIndex,
-          scrollOffset: getNextWalletScrollOffset(nextSelectedIndex, current.scrollOffset, params.walletRowsPerPage),
           status: {
             type: "idle",
             message: "",
@@ -159,31 +181,13 @@ export function useAppKeyboard(params: UseAppKeyboardParams) {
         return
       }
 
-      if (keyName === "c" || keyName === "enter" || keyName === "return") {
-        const selectedWallet = params.sortedWallets[params.walletsModal.selectedIndex]
-        if (!selectedWallet) {
-          return
-        }
+      if (keyName === "c") {
+        params.copySelectedWallet(params.walletsModal.selectedIndex)
+        return
+      }
 
-        const copied = params.renderer.copyToClipboardOSC52(selectedWallet.address)
-        if (copied) {
-          params.setWalletsModal((current) => ({
-            ...current,
-            status: {
-              type: "success",
-              message: `Copied ${selectedWallet.currency_code} ${selectedWallet.network} address`,
-            },
-          }))
-          return
-        }
-
-        params.setWalletsModal((current) => ({
-          ...current,
-          status: {
-            type: "error",
-            message: `Clipboard unsupported in this terminal. Copy manually: ${selectedWallet.address}`,
-          },
-        }))
+      if (keyName === "enter" || keyName === "return") {
+        params.copySelectedWallet(params.walletsModal.selectedIndex)
         return
       }
 
@@ -199,7 +203,6 @@ export function useAppKeyboard(params: UseAppKeyboardParams) {
       params.setWalletsModal({
         open: true,
         selectedIndex: 0,
-        scrollOffset: 0,
         status: {
           type: "idle",
           message: "",
@@ -244,36 +247,6 @@ export function useAppKeyboard(params: UseAppKeyboardParams) {
             searchInput: current.searchApplied,
           }))
           return
-        }
-
-        if (key.name === "enter" || key.name === "return") {
-          const query = params.assetsModal.searchInput.trim()
-          params.setAssetsModal((current) => ({
-            ...current,
-            searchMode: false,
-            searchApplied: query,
-          }))
-          void params.loadAssetsPage(1, query)
-          return
-        }
-
-        if (key.name === "backspace" || key.name === "delete") {
-          params.setAssetsModal((current) => ({
-            ...current,
-            searchInput: current.searchInput.slice(0, -1),
-          }))
-          return
-        }
-
-        if (!key.ctrl && !key.meta && !key.option) {
-          const typedText = getPrintableText(key.sequence)
-          if (typedText.length > 0) {
-            params.setAssetsModal((current) => ({
-              ...current,
-              searchInput: current.searchInput + typedText,
-            }))
-            return
-          }
         }
 
         return

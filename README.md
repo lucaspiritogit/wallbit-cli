@@ -44,6 +44,7 @@ wallbit-cli
 ## Features
 
 - Session-based masked API key login (no env var required)
+- OpenAI key and AI provider preference stored in OS keychain (Windows Credential Manager, macOS Keychain, Linux Secret Service)
 - Checking balance panel
 - Crypto wallets panel
 - Latest transactions panel with pagination
@@ -88,3 +89,4 @@ On each new session, the app shows a masked API key input screen. Paste your Wal
 
 - Never share terminal output containing environment variables.
 - Never paste or commit API keys into code, screenshots, logs, or chat.
+- Sensitive AI settings are persisted via the operating system keychain instead of plaintext files.

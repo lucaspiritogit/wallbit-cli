@@ -10,6 +10,7 @@ export type CheckingBalanceResponse = {
 export type StockBalance = {
   symbol: string
   shares: number | string
+  current_price?: number | string | null
 }
 
 export type StockBalanceResponse = {

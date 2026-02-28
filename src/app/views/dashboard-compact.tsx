@@ -11,11 +11,17 @@ type DashboardCompactProps = {
   state: DashboardCompactState
   hideValues: boolean
   showExtendedContent: boolean
+  aiStatusLabel: string
 }
 
 export function DashboardCompact(props: DashboardCompactProps) {
   return (
     <box flexDirection="column" width="100%" flexGrow={1}>
+      <box>
+        <text>
+          <span fg="#6B7280">AI: {props.aiStatusLabel}</span>
+        </text>
+      </box>
       <box border padding={1} flexDirection="column">
         <box flexDirection="row" justifyContent="space-between" width="100%">
           <text>

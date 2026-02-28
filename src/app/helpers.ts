@@ -39,23 +39,6 @@ export function clipText(value: string, maxLength: number): string {
   return `${value.slice(0, maxLength - 3)}...`
 }
 
-export function getWalletRowsPerPage(terminalHeight: number): number {
-  return Math.max(1, terminalHeight - 14)
-}
-
-export function getNextWalletScrollOffset(selectedIndex: number, currentOffset: number, visibleRows: number): number {
-  if (selectedIndex < currentOffset) {
-    return selectedIndex
-  }
-
-  const lastVisible = currentOffset + visibleRows - 1
-  if (selectedIndex > lastVisible) {
-    return selectedIndex - visibleRows + 1
-  }
-
-  return currentOffset
-}
-
 export function getUserSummary(accountDetails: AccountDetails | null): string {
   if (accountDetails === null) {
     return ""

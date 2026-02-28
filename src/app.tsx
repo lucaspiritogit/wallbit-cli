@@ -1,8 +1,10 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRenderer, useTerminalDimensions } from "@opentui/react"
 import { BalanceList } from "./ui/balance-list"
 import { Logo } from "./ui/logo"
+import type { AgentChatMessage } from "./ui/agent-chat-panel"
 import { WalletsModal } from "./ui/wallets-modal"
+import { runWallbitChat } from "./agent/chat-agent"
 import { sortWallets } from "./utils/wallets"
 import { useApiKeyPaste } from "./app/hooks/use-api-key-paste"
 import { useAppActions } from "./app/hooks/use-app-actions"
@@ -13,14 +15,16 @@ import {
   COMPACT_MIN_WIDTH,
   DASHBOARD_HIDE_LOGO_WIDTH,
 } from "./app/constants"
-import { getWalletRowsPerPage } from "./app/helpers"
 import { AssetsModal } from "./app/views/assets-modal"
 import { AuthScreen } from "./app/views/auth-screen"
 import { DashboardCompact } from "./app/views/dashboard-compact"
 import { DashboardFull } from "./app/views/dashboard-full"
 import { DashboardLoading } from "./app/views/dashboard-loading"
 import { HelpModal } from "./app/views/help-modal"
+import { getStoredAiProvider, getStoredOpenAiApiKey, setStoredAiProvider } from "./app/keychain"
 import type { AppState, AssetsModalState, WalletsModalState } from "./app/types"
+
+type AiProvider = "openai" | "none"
 
 const INITIAL_ASSETS_MODAL_STATE: AssetsModalState = {
   open: false,
@@ -42,7 +46,6 @@ const INITIAL_ASSETS_MODAL_STATE: AssetsModalState = {
 const INITIAL_WALLETS_MODAL_STATE: WalletsModalState = {
   open: false,
   selectedIndex: 0,
-  scrollOffset: 0,
   status: {
     type: "idle",
     message: "",
@@ -54,12 +57,28 @@ export function App() {
   const terminalDimensions = useTerminalDimensions()
   const [state, setState] = useState<AppState>({ status: "loading" })
   const [apiKey, setApiKey] = useState<string | null>(null)
-  const [apiKeyInput, setApiKeyInput] = useState("")
+  const [aiProvider, setAiProvider] = useState<AiProvider | null>(null)
+  const [openAiApiKey, setOpenAiApiKey] = useState<string | null>(() => {
+    const envValue = process.env.OPENAI_API_KEY?.trim()
+    return envValue && envValue.length > 0 ? envValue : null
+  })
+  const [openAiKeyLoaded, setOpenAiKeyLoaded] = useState<boolean>(() => {
+    const envValue = process.env.OPENAI_API_KEY?.trim()
+    return Boolean(envValue && envValue.length > 0)
+  })
+  const [aiProviderSelectionIndex, setAiProviderSelectionIndex] = useState(0)
+  const [authInput, setAuthInput] = useState("")
   const [authError, setAuthError] = useState<string | null>(null)
   const [helpModalOpen, setHelpModalOpen] = useState(false)
   const [hideValues, setHideValues] = useState(false)
   const [assetsModal, setAssetsModal] = useState<AssetsModalState>(INITIAL_ASSETS_MODAL_STATE)
   const [walletsModal, setWalletsModal] = useState<WalletsModalState>(INITIAL_WALLETS_MODAL_STATE)
+  const [chatMessages, setChatMessages] = useState<AgentChatMessage[]>([])
+  const [chatInput, setChatInput] = useState("")
+  const [chatFocused, setChatFocused] = useState(false)
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatError, setChatError] = useState<string | null>(null)
+  const [chatScrollOffset, setChatScrollOffset] = useState(0)
   const lastPaginationKeyAtRef = useRef(0)
 
   const sortedWallets = useMemo(() => {
@@ -70,12 +89,218 @@ export function App() {
     return sortWallets(state.wallets)
   }, [state])
 
-  const walletRowsPerPage = useMemo(() => getWalletRowsPerPage(terminalDimensions.height), [terminalDimensions.height])
+  const chatVisibleRows = useMemo(() => Math.max(8, terminalDimensions.height - 15), [terminalDimensions.height])
+  const authMode = useMemo<"wallbit" | "ai-provider" | null>(() => {
+    if (apiKey === null) {
+      return "wallbit"
+    }
+
+    if (aiProvider === null) {
+      return "ai-provider"
+    }
+
+    return null
+  }, [apiKey, aiProvider])
+
+  useEffect(() => {
+    if (openAiApiKey !== null) {
+      return
+    }
+
+    let mounted = true
+
+    async function loadKeyFromKeychain() {
+      try {
+        const key = await getStoredOpenAiApiKey()
+        if (!mounted || key === null) {
+          if (mounted) {
+            setOpenAiKeyLoaded(true)
+          }
+          return
+        }
+
+        setOpenAiApiKey(key)
+        setOpenAiKeyLoaded(true)
+      } catch {
+        if (mounted) {
+          setOpenAiKeyLoaded(true)
+        }
+      }
+    }
+
+    void loadKeyFromKeychain()
+
+    return () => {
+      mounted = false
+    }
+  }, [openAiApiKey])
+
+  useEffect(() => {
+    if (aiProvider !== null) {
+      return
+    }
+
+    let mounted = true
+
+    async function loadAiProviderFromKeychain() {
+      try {
+        const storedProvider = await getStoredAiProvider()
+        if (!mounted || storedProvider === null) {
+          return
+        }
+
+        setAiProvider(storedProvider)
+        setAiProviderSelectionIndex(storedProvider === "openai" ? 0 : 1)
+      } catch {
+      }
+    }
+
+    void loadAiProviderFromKeychain()
+
+    return () => {
+      mounted = false
+    }
+  }, [aiProvider])
+
+  const submitAuthInput = useCallback(async (): Promise<void> => {
+    const enteredValue = authInput.trim()
+    if (enteredValue.length === 0) {
+      setAuthError("API key is required.")
+      return
+    }
+
+    if (authMode === "wallbit") {
+      setAuthError(null)
+      setApiKey(enteredValue)
+      setAuthInput("")
+    }
+  }, [authInput, authMode])
+
+  const submitAiProviderSelection = useCallback(async (): Promise<void> => {
+    try {
+      if (aiProviderSelectionIndex === 0) {
+        if (!openAiKeyLoaded) {
+          setAuthError("Checking keychain for OpenAI key. Try again in a second.")
+          return
+        }
+
+        if (openAiApiKey === null) {
+          setAuthError("OpenAI key not found. Set OPENAI_API_KEY or save it to keychain, or continue without AI.")
+          return
+        }
+
+        setAuthError(null)
+        await setStoredAiProvider("openai")
+        setAiProvider("openai")
+        return
+      }
+
+      setAuthError(null)
+      await setStoredAiProvider("none")
+      setAiProvider("none")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to store AI provider preference."
+      setAuthError(message)
+    }
+  }, [aiProviderSelectionIndex, openAiApiKey, openAiKeyLoaded])
+
+  const handleAiProviderChange = useCallback((index: number) => {
+    setAiProviderSelectionIndex(index)
+    setAuthError(null)
+  }, [])
+
+  const handleAiProviderSubmit = useCallback(() => {
+    void submitAiProviderSelection()
+  }, [submitAiProviderSelection])
 
   const handleAuthenticationError = useCallback((message: string) => {
     setApiKey(null)
+    setAiProvider(null)
     setAuthError(message)
     setState({ status: "loading" })
+  }, [])
+
+  const appendChatMessage = useCallback((role: AgentChatMessage["role"], content: string, toolsUsed?: string[]) => {
+    const cleanContent = content.trim()
+    if (!cleanContent) {
+      return
+    }
+
+    setChatMessages((current) => [
+      ...current,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        role,
+        content: cleanContent,
+        toolsUsed,
+      },
+    ])
+    setChatScrollOffset(0)
+  }, [])
+
+  const getChatContext = useCallback((): string => {
+    if (state.status !== "success") {
+      return "Dashboard data is loading."
+    }
+
+    const holderName = state.accountDetails?.holder_name?.trim() || "Unknown holder"
+    const checkingCount = state.balances.length
+    const walletsCount = state.wallets.length
+    const stocksCount = state.stocks.length
+    const transactionsCount = state.transactions.length
+
+    return [
+      `holder_name=${holderName}`,
+      `checking_balances=${checkingCount}`,
+      `wallets=${walletsCount}`,
+      `stocks=${stocksCount}`,
+      `transactions_in_view=${transactionsCount}`,
+    ].join(", ")
+  }, [state])
+
+  const sendChatMessage = useCallback(async (value?: string): Promise<void> => {
+    const enteredMessage = (value ?? chatInput).trim()
+    if (!enteredMessage || chatLoading) {
+      return
+    }
+
+    setChatInput("")
+    setChatError(null)
+    appendChatMessage("user", enteredMessage)
+    setChatLoading(true)
+
+    try {
+      const response = await runWallbitChat({
+        prompt: enteredMessage,
+        context: getChatContext(),
+        wallbitApiKey: apiKey,
+        openAiApiKey,
+      })
+      appendChatMessage("assistant", response.output, response.toolsUsed)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to send message to agent."
+      setChatError(message)
+    } finally {
+      setChatLoading(false)
+    }
+  }, [apiKey, appendChatMessage, chatInput, chatLoading, getChatContext, openAiApiKey])
+
+  const handleChatInputChange = useCallback((value: string) => {
+    setChatInput(value)
+  }, [])
+
+  const handleChatInputSubmit = useCallback(
+    (value: string) => {
+      void sendChatMessage(value)
+    },
+    [sendChatMessage],
+  )
+
+  const handleAssetsSearchInputChange = useCallback((value: string) => {
+    setAssetsModal((current) => ({
+      ...current,
+      searchInput: value,
+    }))
   }, [])
 
   const appActions = useAppActions({
@@ -85,25 +310,90 @@ export function App() {
     onAuthenticationError: handleAuthenticationError,
   })
 
+  const handleAssetsSearchSubmit = useCallback(
+    (value: string) => {
+      const query = value.trim()
+      setAssetsModal((current) => ({
+        ...current,
+        searchMode: false,
+        searchInput: query,
+        searchApplied: query,
+      }))
+      void appActions.loadAssetsPage(1, query)
+    },
+    [appActions],
+  )
+
+  const handleWalletSelectionChange = useCallback((index: number) => {
+    setWalletsModal((current) => ({
+      ...current,
+      selectedIndex: index,
+      status: {
+        type: "idle",
+        message: "",
+      },
+    }))
+  }, [])
+
+  const handleWalletCopy = useCallback(
+    (index: number) => {
+      const selectedWallet = sortedWallets[index]
+      if (!selectedWallet) {
+        return
+      }
+
+      const copied = renderer.copyToClipboardOSC52(selectedWallet.address)
+      if (copied) {
+        setWalletsModal((current) => ({
+          ...current,
+          selectedIndex: index,
+          status: {
+            type: "success",
+            message: `Copied ${selectedWallet.currency_code} ${selectedWallet.network} address`,
+          },
+        }))
+        return
+      }
+
+      setWalletsModal((current) => ({
+        ...current,
+        selectedIndex: index,
+        status: {
+          type: "error",
+          message: `Clipboard unsupported in this terminal. Copy manually: ${selectedWallet.address}`,
+        },
+      }))
+    },
+    [renderer, sortedWallets],
+  )
+
   useWalletsStatusToast({
     walletsModal,
     setWalletsModal,
   })
 
   useApiKeyPaste({
-    apiKey,
+    authMode,
     renderer,
-    setApiKeyInput,
+    setAuthInput,
     setAuthError,
   })
 
+  const shouldUseCompactLayout =
+    terminalDimensions.height < COMPACT_MIN_HEIGHT || terminalDimensions.width < COMPACT_MIN_WIDTH
+  const shouldUseMinimalCompactLayout = terminalDimensions.height < COMPACT_MIN_HEIGHT
+  const shouldShowLogo = terminalDimensions.width >= DASHBOARD_HIDE_LOGO_WIDTH
+  const aiEnabled = aiProvider === "openai" && openAiApiKey !== null
+  const chatEnabled = !shouldUseCompactLayout && state.status === "success" && aiEnabled
+  const aiStatusLabel = aiEnabled ? "OpenAI" : "Disabled"
+
   useAppKeyboard({
     renderer,
-    apiKey,
-    apiKeyInput,
-    setApiKey,
-    setApiKeyInput,
+    authMode,
+    authInput,
+    setAuthInput,
     setAuthError,
+    submitAuthInput,
     helpModalOpen,
     setHelpModalOpen,
     hideValues,
@@ -113,12 +403,16 @@ export function App() {
     setAssetsModal,
     walletsModal,
     setWalletsModal,
-    sortedWallets,
-    walletRowsPerPage,
+    copySelectedWallet: handleWalletCopy,
     lastPaginationKeyAtRef,
     loadTransactionsPage: appActions.loadTransactionsPage,
     loadAssetsPage: appActions.loadAssetsPage,
     openAssetPreview: appActions.openAssetPreview,
+    chatFocused,
+    setChatFocused,
+    chatEnabled,
+    chatScrollOffset,
+    setChatScrollOffset,
   })
 
   const body = useMemo(() => {
@@ -141,23 +435,41 @@ export function App() {
     return <BalanceList balances={state.balances} hidden={hideValues} />
   }, [hideValues, state])
 
-  const shouldUseCompactLayout =
-    terminalDimensions.height < COMPACT_MIN_HEIGHT || terminalDimensions.width < COMPACT_MIN_WIDTH
-  const shouldUseMinimalCompactLayout = terminalDimensions.height < COMPACT_MIN_HEIGHT
-  const shouldShowLogo = terminalDimensions.width >= DASHBOARD_HIDE_LOGO_WIDTH
+  useEffect(() => {
+    if (!chatEnabled && chatFocused) {
+      setChatFocused(false)
+    }
+  }, [chatEnabled, chatFocused])
 
-  return (
-    <box flexDirection="column" width="100%" height="100%" padding={1}>
-      {apiKey === null ? (
+  const mainContent = useMemo(() => {
+    if (authMode !== null) {
+      return (
         <box flexDirection="column" alignItems="center" width="100%" height="100%">
           <Logo />
-          <AuthScreen apiKeyInput={apiKeyInput} authError={authError} />
+          <AuthScreen
+            authInput={authInput}
+            authMode={authMode}
+            aiProviderSelectionIndex={aiProviderSelectionIndex}
+            openAiAvailable={openAiApiKey !== null}
+            openAiKeyLoaded={openAiKeyLoaded}
+            authError={authError}
+            onAiProviderChange={handleAiProviderChange}
+            onAiProviderSubmit={handleAiProviderSubmit}
+          />
         </box>
-      ) : helpModalOpen ? (
-        <HelpModal />
-      ) : state.status === "loading" ? (
-        <DashboardLoading />
-      ) : state.status === "error" ? (
+      )
+    }
+
+    if (helpModalOpen) {
+      return <HelpModal />
+    }
+
+    if (state.status === "loading") {
+      return <DashboardLoading />
+    }
+
+    if (state.status === "error") {
+      return (
         <box flexDirection="column">
           <Logo />
           <box marginTop={1}>
@@ -166,35 +478,104 @@ export function App() {
             </text>
           </box>
         </box>
-      ) : assetsModal.open && state.status === "success" ? (
-        <AssetsModal assetsModal={assetsModal} />
-      ) : walletsModal.open && state.status === "success" ? (
+      )
+    }
+
+    if (assetsModal.open) {
+      return (
+        <AssetsModal
+          assetsModal={assetsModal}
+          onSearchInputChange={handleAssetsSearchInputChange}
+          onSearchSubmit={handleAssetsSearchSubmit}
+        />
+      )
+    }
+
+    if (walletsModal.open) {
+      return (
         <WalletsModal
           wallets={state.wallets}
           selectedIndex={walletsModal.selectedIndex}
-          scrollOffset={walletsModal.scrollOffset}
-          visibleRows={walletRowsPerPage}
           statusType={walletsModal.status.type}
           statusMessage={walletsModal.status.message}
+          onSelectionChange={handleWalletSelectionChange}
+          onCopySelected={handleWalletCopy}
         />
-      ) : shouldUseCompactLayout ? (
+      )
+    }
+
+    if (shouldUseCompactLayout) {
+      return (
         <DashboardCompact
           body={body}
           state={state}
           hideValues={hideValues}
           showExtendedContent={!shouldUseMinimalCompactLayout}
+          aiStatusLabel={aiStatusLabel}
         />
-      ) : (
-        <DashboardFull
-          body={body}
-          state={state}
-          hideValues={hideValues}
-          showLogo={shouldShowLogo}
-        />
-      )}
+      )
+    }
+
+    return (
+      <DashboardFull
+        body={body}
+        state={state}
+        hideValues={hideValues}
+        showLogo={shouldShowLogo}
+        showAgentChat={aiEnabled}
+        aiStatusLabel={aiStatusLabel}
+        chatMessages={chatMessages}
+        chatInput={chatInput}
+        onChatInputChange={handleChatInputChange}
+        onChatInputSubmit={handleChatInputSubmit}
+        chatFocused={chatFocused}
+        chatLoading={chatLoading}
+        chatError={chatError}
+        chatVisibleRows={chatVisibleRows}
+        chatScrollOffset={chatScrollOffset}
+      />
+    )
+  }, [
+    aiProviderSelectionIndex,
+    aiStatusLabel,
+    assetsModal,
+    authError,
+    authInput,
+    authMode,
+    aiEnabled,
+    body,
+    chatError,
+    chatFocused,
+    chatInput,
+    chatLoading,
+    chatMessages,
+    chatScrollOffset,
+    chatVisibleRows,
+    handleAiProviderChange,
+    handleAiProviderSubmit,
+    handleAssetsSearchInputChange,
+    handleAssetsSearchSubmit,
+    handleChatInputChange,
+    handleChatInputSubmit,
+    handleWalletCopy,
+    handleWalletSelectionChange,
+    helpModalOpen,
+    hideValues,
+    openAiApiKey,
+    openAiKeyLoaded,
+    shouldShowLogo,
+    shouldUseCompactLayout,
+    shouldUseMinimalCompactLayout,
+    state,
+    walletsModal,
+  ])
+
+  return (
+    <box flexDirection="column" width="100%" height="100%" padding={1}>
+      {mainContent}
       <box marginTop={1}>
         <text>
-          <span fg="#6B7280">Press ? for help</span>
+          <span fg="#6B7280">Press ? for help. Ctrl+C to exit.</span>
         </text>
       </box>
     </box>

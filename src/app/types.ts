@@ -45,7 +45,6 @@ export type WalletsModalStatusType = "idle" | "success" | "error"
 export type WalletsModalState = {
   open: boolean
   selectedIndex: number
-  scrollOffset: number
   status: {
     type: WalletsModalStatusType
     message: string

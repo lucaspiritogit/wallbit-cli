@@ -10,21 +10,21 @@ type RendererLike = {
 }
 
 type UseApiKeyPasteParams = {
-  apiKey: string | null
+  authMode: "wallbit" | "ai-provider" | null
   renderer: RendererLike
-  setApiKeyInput: Dispatch<SetStateAction<string>>
+  setAuthInput: Dispatch<SetStateAction<string>>
   setAuthError: Dispatch<SetStateAction<string | null>>
 }
 
 export function useApiKeyPaste(params: UseApiKeyPasteParams) {
-  const apiKey = params.apiKey
+  const authMode = params.authMode
   const renderer = params.renderer
-  const setApiKeyInput = params.setApiKeyInput
+  const setAuthInput = params.setAuthInput
   const setAuthError = params.setAuthError
 
   useEffect(() => {
     const handlePaste = (event: { text: string }) => {
-      if (apiKey !== null) {
+      if (authMode !== "wallbit") {
         return
       }
 
@@ -33,7 +33,7 @@ export function useApiKeyPaste(params: UseApiKeyPasteParams) {
         return
       }
 
-      setApiKeyInput((current) => current + pastedText)
+      setAuthInput((current) => current + pastedText)
       setAuthError(null)
     }
 
@@ -42,5 +42,5 @@ export function useApiKeyPaste(params: UseApiKeyPasteParams) {
     return () => {
       renderer.keyInput.off("paste", handlePaste)
     }
-  }, [apiKey, renderer, setApiKeyInput, setAuthError])
+  }, [authMode, renderer, setAuthInput, setAuthError])
 }
