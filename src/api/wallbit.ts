@@ -267,11 +267,11 @@ function getErrorMessage(status: number, errorPayload: WallbitApiError): string 
   const fallbackMessage = errorPayload.message ?? "Unexpected API error"
 
   if (status === 401) {
-    return "Unauthorized: check your WALLBIT_API_KEY value."
+    return "Unauthorized: Check if your Wallbit API Key value is correct."
   }
 
   if (status === 403) {
-    return "Forbidden: your API key needs read permission."
+    return "Forbidden: Your Wallbit API Key needs read permission."
   }
 
   if (status === 429) {
