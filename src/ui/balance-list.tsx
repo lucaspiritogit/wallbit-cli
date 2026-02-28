@@ -26,12 +26,14 @@ export function BalanceList({ balances, hidden }: BalanceListProps) {
   return (
     <box flexDirection="column">
       {sortedBalances.map((balance) => (
-        <text key={balance.currency}>
-          <strong>
-            <span fg={getCurrencyColor(balance.currency)}>{balance.currency.padEnd(6, " ")}</span>
-          </strong>
-          {`$${hidden ? maskAmount(balanceFormatter.format(balance.balance)) : balanceFormatter.format(balance.balance)}`}
-        </text>
+        <box key={balance.currency}>
+          <text>
+            <strong>
+              <span fg={getCurrencyColor(balance.currency)}>{balance.currency.padEnd(6, " ")}</span>
+            </strong>
+            {`$${hidden ? maskAmount(balanceFormatter.format(balance.balance)) : balanceFormatter.format(balance.balance)}`}
+          </text>
+        </box>
       ))}
     </box>
   )
@@ -43,6 +45,10 @@ function maskAmount(formattedAmount: string): string {
 
 function getCurrencyColor(currency: string): string {
   const normalizedCurrency = currency.trim().toUpperCase()
+
+  if (normalizedCurrency === "USDC") {
+    return "#2775CA"
+  }
 
   if (normalizedCurrency === "USD") {
     return "#22C55E"
