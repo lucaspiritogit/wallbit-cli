@@ -100,8 +100,8 @@ jobs:
 
       - name: Add installers
         run: |
-          cp scripts/install.sh release-assets/install.sh
-          cp scripts/install.ps1 release-assets/install.ps1
+          cp install.sh release-assets/install.sh
+          cp install.ps1 release-assets/install.ps1
 
       - name: Generate checksums
         working-directory: release-assets

@@ -16,13 +16,13 @@ Terminal dashboard for Wallbit.
 ### macOS / Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lucaspiritogit/wallbit-cli/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/lucaspiritogit/wallbit-cli/main/install.sh | sh
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-iwr https://raw.githubusercontent.com/lucaspiritogit/wallbit-cli/main/scripts/install.ps1 -OutFile install.ps1; ./install.ps1
+iwr https://raw.githubusercontent.com/lucaspiritogit/wallbit-cli/main/install.ps1 -OutFile install.ps1; ./install.ps1
 ```
 
 After install, run:
