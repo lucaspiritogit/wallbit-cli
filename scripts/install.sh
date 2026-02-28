@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-REPO="${WALLBIT_CLI_REPO:-lpirito/wallbit-cli}"
+REPO="${WALLBIT_CLI_REPO:-lucaspiritogit/wallbit-cli}"
 VERSION="latest"
 INSTALL_DIR="${WALLBIT_CLI_INSTALL_DIR:-$HOME/.local/bin}"
 BINARY_NAME="wallbit-cli"

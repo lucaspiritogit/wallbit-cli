@@ -1,5 +1,5 @@
 Param(
-  [string]$Repo = $(if ($env:WALLBIT_CLI_REPO) { $env:WALLBIT_CLI_REPO } else { "lucaspiritogit/wallbit-cli" }),
+  [string]$Repo = $(if ($env:WALLBIT_CLI_REPO) { $env:WALLBIT_CLI_REPO } else { "lpirito/wallbit-cli" }),
   [string]$Version = "latest",
   [string]$InstallDir = $(if ($env:WALLBIT_CLI_INSTALL_DIR) { $env:WALLBIT_CLI_INSTALL_DIR } else { "$HOME\\.local\\bin" })
 )
