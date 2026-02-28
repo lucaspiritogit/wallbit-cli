@@ -1,4 +1,5 @@
 import type { CheckingBalance } from "../types/wallbit"
+import { getCurrencyColor } from "../utils/currency-color"
 
 type BalanceListProps = {
   balances: CheckingBalance[]
@@ -43,24 +44,3 @@ function maskAmount(formattedAmount: string): string {
   return formattedAmount.replace(/[0-9]/g, "*")
 }
 
-function getCurrencyColor(currency: string): string {
-  const normalizedCurrency = currency.trim().toUpperCase()
-
-  if (normalizedCurrency === "USDC") {
-    return "#2775CA"
-  }
-
-  if (normalizedCurrency === "USD") {
-    return "#22C55E"
-  }
-
-  if (normalizedCurrency === "ARS") {
-    return "#60A5FA"
-  }
-
-  if (normalizedCurrency === "EUR") {
-    return "#1E3A8A"
-  }
-
-  return "#9CA3AF"
-}

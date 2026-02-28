@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useKeyboard, useRenderer } from "@opentui/react"
+import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react"
 import {
   getAccountDetails,
   getAsset,
@@ -62,6 +62,7 @@ type AssetsModalState = {
 
 export function App() {
   const renderer = useRenderer()
+  const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions()
   const [state, setState] = useState<AppState>({ status: "loading" })
   const [apiKey, setApiKey] = useState<string | null>(null)
   const [apiKeyInput, setApiKeyInput] = useState("")
@@ -701,6 +702,25 @@ export function App() {
                 <AssetsTable assets={assetsModal.assets} selectedIndex={assetsModal.selectedIndex} />
               )}
             </box>
+          </box>
+        </box>
+      ) : terminalHeight < 30 || terminalWidth < 100 ? (
+        <box flexDirection="column" width="100%" flexGrow={1}>
+          <box border padding={1} flexDirection="column">
+            <box flexDirection="row" justifyContent="space-between" width="100%">
+              <text>
+                <strong>Checking Balance</strong>
+              </text>
+              <text>
+                <span fg="#6B7280">h to hide all</span>
+              </text>
+            </box>
+            <box marginTop={1}>{body}</box>
+          </box>
+          <box marginTop={1}>
+            <text>
+              <span fg="#9CA3AF">Compact mode: enlarge terminal to see wallets, transactions, and stocks.</span>
+            </text>
           </box>
         </box>
       ) : (

@@ -1,4 +1,5 @@
 import type { Transaction } from "../types/wallbit"
+import { getCurrencyColor } from "../utils/currency-color"
 
 type TransactionsListProps = {
   transactions: Transaction[]
@@ -179,28 +180,6 @@ function formatDate(value: string): string {
   }
 
   return date.toISOString().slice(0, 10)
-}
-
-function getCurrencyColor(currency: string): string {
-  const normalizedCurrency = currency.trim().toUpperCase()
-
-  if (normalizedCurrency === "USD") {
-    return "#22C55E"
-  }
-
-  if (normalizedCurrency === "ARS") {
-    return "#dfec29"
-  }
-
-  if (normalizedCurrency === "USDC") {
-    return "#2775CA"
-  }
-
-  if (normalizedCurrency === "EUR") {
-    return "#1E3A8A"
-  }
-
-  return "#9CA3AF"
 }
 
 function clipText(value: string, width: number): string {
