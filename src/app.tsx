@@ -432,7 +432,7 @@ export function App() {
       )
     }
 
-    return <BalanceList balances={state.balances} hidden={hideValues} />
+    return <BalanceList balances={state.balances} hidden={hideValues} accountDetails={state.accountDetails} />
   }, [hideValues, state])
 
   useEffect(() => {

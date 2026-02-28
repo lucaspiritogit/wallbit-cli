@@ -12,11 +12,11 @@ const amountFormatter = new Intl.NumberFormat("en-US", {
 })
 
 const COLUMN_WIDTHS = {
-  direction: 3,
-  date: 10,
-  amount: 12,
-  currency: 5,
-  type: 20,
+  direction: 4,
+  date: 13,
+  amount: 14,
+  currency: 9,
+  status: 12,
 }
 
 export function TransactionsList({ transactions, hidden }: TransactionsListProps) {
@@ -33,7 +33,27 @@ export function TransactionsList({ transactions, hidden }: TransactionsListProps
     .slice(0, 10)
 
   return (
-    <box flexDirection="column">
+    <box flexDirection="column" width="100%" flexGrow={1}>
+      <box flexDirection="row" width="100%" marginBottom={1}>
+        <box width={COLUMN_WIDTHS.direction} justifyContent="center" alignItems="center">
+          <text fg="#93C5FD" content="DIR" />
+        </box>
+        <box width={COLUMN_WIDTHS.date}>
+          <text fg="#93C5FD" content="DATE" />
+        </box>
+        <box width={COLUMN_WIDTHS.amount} paddingLeft={2}>
+          <text fg="#93C5FD" content="AMOUNT" />
+        </box>
+        <box width={COLUMN_WIDTHS.currency} paddingLeft={1}>
+          <text fg="#93C5FD" content="CUR" />
+        </box>
+        <box width={COLUMN_WIDTHS.status} paddingLeft={1}>
+          <text fg="#93C5FD" content="STATUS" />
+        </box>
+        <box flexGrow={1} paddingLeft={2}>
+          <text fg="#93C5FD" content="TYPE" />
+        </box>
+      </box>
       {latestTransactions.map((transaction) => {
         const currency = transaction.dest_currency?.code ?? transaction.source_currency?.code ?? "-"
         const destAmount = parseAmount(transaction.dest_amount)
@@ -43,8 +63,7 @@ export function TransactionsList({ transactions, hidden }: TransactionsListProps
         const direction = getTransactionDirection(destAmount, sourceAmount, transactionType)
         const formattedAmount = amount === null ? "-" : amountFormatter.format(amount)
         const amountText = hidden ? maskAmount(formattedAmount) : formattedAmount
-        const typeText = clipText(transactionType, COLUMN_WIDTHS.type)
-
+        const statusText = normalizeStatus(transaction.status)
         return (
           <box key={transaction.uuid} flexDirection="row" width="100%">
             <box width={COLUMN_WIDTHS.direction} justifyContent="center" alignItems="center">
@@ -53,16 +72,19 @@ export function TransactionsList({ transactions, hidden }: TransactionsListProps
             <box width={COLUMN_WIDTHS.date}>
               <text fg="#D1D5DB" content={formatDate(transaction.created_at)} />
             </box>
-            <box width={COLUMN_WIDTHS.amount} paddingLeft={1}>
+            <box width={COLUMN_WIDTHS.amount} paddingLeft={2}>
               <text fg="#E5E7EB" content={amountText} />
             </box>
-            <box width={COLUMN_WIDTHS.currency}>
+            <box width={COLUMN_WIDTHS.currency} paddingLeft={1}>
               <text>
                 <span fg={getCurrencyColor(currency)}>{currency}</span>
               </text>
             </box>
-            <box width={COLUMN_WIDTHS.type}>
-              <text fg="#60A5FA" content={typeText} />
+            <box width={COLUMN_WIDTHS.status} paddingLeft={1}>
+              <text fg={getStatusColor(statusText)} content={statusText} />
+            </box>
+            <box flexGrow={1} paddingLeft={2}>
+              <text fg="#60A5FA" content={transactionType} />
             </box>
           </box>
         )
@@ -172,6 +194,31 @@ function getDirectionColor(direction: "sending" | "receiving" | "unknown"): stri
   return "#9CA3AF"
 }
 
+function normalizeStatus(status: string): string {
+  const trimmedStatus = status.trim()
+  if (trimmedStatus.length === 0) {
+    return "-"
+  }
+
+  return trimmedStatus.toUpperCase()
+}
+
+function getStatusColor(status: string): string {
+  if (status.includes("SUCCESS") || status.includes("COMPLETED")) {
+    return "#22C55E"
+  }
+
+  if (status.includes("PENDING") || status.includes("PROCESSING")) {
+    return "#F59E0B"
+  }
+
+  if (status.includes("FAILED") || status.includes("ERROR") || status.includes("REJECTED")) {
+    return "#F87171"
+  }
+
+  return "#D1D5DB"
+}
+
 function formatDate(value: string): string {
   const date = new Date(value)
 
@@ -180,18 +227,6 @@ function formatDate(value: string): string {
   }
 
   return date.toISOString().slice(0, 10)
-}
-
-function clipText(value: string, width: number): string {
-  if (value.length <= width) {
-    return value
-  }
-
-  if (width <= 3) {
-    return value.slice(0, width)
-  }
-
-  return `${value.slice(0, width - 3)}...`
 }
 
 function maskAmount(value: string): string {

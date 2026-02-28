@@ -61,6 +61,14 @@ export type AccountDetails = {
   holder_name?: string
   country?: string
   address?: AccountDetailsAddress | null
+  bank_name?: string
+  routing_number?: string
+  account_number?: string
+  bank?: {
+    name?: string
+    routing_number?: string
+    account_number?: string
+  } | null
 }
 
 export type AccountDetailsResponse = {

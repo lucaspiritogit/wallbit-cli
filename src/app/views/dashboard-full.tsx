@@ -56,31 +56,33 @@ export function DashboardFull(props: DashboardFullProps) {
           />
         ) : null}
         <box flexDirection="column" flexGrow={1} minWidth={56} height="100%">
-          <box border padding={1} flexDirection="column">
-            <box flexDirection="row" justifyContent="space-between" width="100%">
-              <text>
-                <strong>Checking Balance</strong>
-              </text>
-              <text>
-                <span fg="#6B7280">h to hide all</span>
-              </text>
-            </box>
-            <box marginTop={1}>{props.body}</box>
-          </box>
-          <box border padding={1} marginTop={1} flexDirection="column">
-            <box flexDirection="row" justifyContent="space-between" width="100%">
-              <text>
-                <strong>Crypto Wallets</strong>
-              </text>
-            </box>
-            <box marginTop={1}>
-              {props.state.status === "loading" ? (
+          <box flexDirection="row" width="100%">
+            <box border padding={1} flexDirection="column" flexGrow={2}>
+              <box flexDirection="row" justifyContent="space-between" width="100%">
                 <text>
-                  <span fg="#93C5FD">Loading wallets...</span>
+                  <strong>Checking Balance</strong>
                 </text>
-              ) : (
-                <WalletsList wallets={props.state.wallets} />
-              )}
+                <text>
+                  <span fg="#6B7280">h to hide all</span>
+                </text>
+              </box>
+              <box marginTop={1}>{props.body}</box>
+            </box>
+            <box border padding={1} marginLeft={1} flexDirection="column" flexGrow={1} minWidth={28}>
+              <box flexDirection="row" justifyContent="space-between" width="100%">
+                <text>
+                  <strong>Crypto Wallets</strong>
+                </text>
+              </box>
+              <box marginTop={1}>
+                {props.state.status === "loading" ? (
+                  <text>
+                    <span fg="#93C5FD">Loading wallets...</span>
+                  </text>
+                ) : (
+                  <WalletsList wallets={props.state.wallets} />
+                )}
+              </box>
             </box>
           </box>
           <box border padding={1} marginTop={1} flexDirection="column" flexGrow={1}>
