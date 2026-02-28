@@ -143,6 +143,7 @@ export function App() {
 
   const shouldUseCompactLayout =
     terminalDimensions.height < COMPACT_MIN_HEIGHT || terminalDimensions.width < COMPACT_MIN_WIDTH
+  const shouldUseMinimalCompactLayout = terminalDimensions.height < COMPACT_MIN_HEIGHT
   const shouldShowLogo = terminalDimensions.width >= DASHBOARD_HIDE_LOGO_WIDTH
 
   return (
@@ -177,7 +178,12 @@ export function App() {
           statusMessage={walletsModal.status.message}
         />
       ) : shouldUseCompactLayout ? (
-        <DashboardCompact body={body} />
+        <DashboardCompact
+          body={body}
+          state={state}
+          hideValues={hideValues}
+          showExtendedContent={!shouldUseMinimalCompactLayout}
+        />
       ) : (
         <DashboardFull
           body={body}
