@@ -22,7 +22,7 @@ const WALLBIT_LOGO = `
                    +++++++++
                       ++
 
-                                              `
+                                               `
 
 export function Logo() {
   return (

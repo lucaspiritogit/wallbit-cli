@@ -17,7 +17,7 @@ Terminal dashboard for Wallbit.
 
 - A Wallbit API key with `read` permission
 
-## Install (No Bun Required)
+## Install
 
 ### macOS / Linux
 
@@ -76,6 +76,8 @@ On each new session, the app shows a masked API key input screen. Paste your Wal
 
 - `h`: hide/show all currency values (balances + transactions)
 - `left` / `right`: previous/next transactions page
+- `w`: open wallets modal (copy wallet addresses)
+- `up` / `down` + `c` or `enter` (inside wallets modal): select and copy address
 - `esc` or `ctrl+c` or `q`: quit
 
 ## Disclaimer

@@ -1,4 +1,5 @@
 import type { CryptoWallet } from "../types/wallbit"
+import { sortWallets, truncateWalletAddress } from "../utils/wallets"
 
 type WalletsListProps = {
   wallets: CryptoWallet[]
@@ -13,14 +14,7 @@ export function WalletsList({ wallets }: WalletsListProps) {
     )
   }
 
-  const sortedWallets = [...wallets].sort((a, b) => {
-    const byCurrency = a.currency_code.localeCompare(b.currency_code)
-    if (byCurrency !== 0) {
-      return byCurrency
-    }
-
-    return a.network.localeCompare(b.network)
-  })
+  const sortedWallets = sortWallets(wallets)
 
   return (
     <box flexDirection="column">
@@ -30,18 +24,10 @@ export function WalletsList({ wallets }: WalletsListProps) {
             <span fg="#60A5FA">{wallet.currency_code}</span>
             <span fg="#9CA3AF"> {wallet.network}</span>
             <br />
-            <span fg="#D1D5DB">{truncateAddress(wallet.address)}</span>
+            <span fg="#D1D5DB">{truncateWalletAddress(wallet.address)}</span>
           </text>
         </box>
       ))}
     </box>
   )
-}
-
-function truncateAddress(address: string): string {
-  if (address.length <= 22) {
-    return address
-  }
-
-  return `${address.slice(0, 10)}...${address.slice(-8)}`
 }

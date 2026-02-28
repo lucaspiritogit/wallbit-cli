@@ -1,0 +1,7 @@
+export const TRANSACTIONS_PER_PAGE = 10
+export const ASSETS_PER_PAGE = 10
+export const PAGINATION_THROTTLE_MS = 300
+export const SUCCESS_TOAST_MS = 1800
+export const COMPACT_MIN_HEIGHT = 24
+export const COMPACT_MIN_WIDTH = 60
+export const DASHBOARD_HIDE_LOGO_WIDTH = 50
