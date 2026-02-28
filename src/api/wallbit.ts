@@ -1,6 +1,15 @@
 import type {
+  AccountDetails,
+  AccountDetailsResponse,
+  Asset,
+  AssetResponse,
+  AssetsResponse,
   CheckingBalance,
   CheckingBalanceResponse,
+  CryptoWallet,
+  CryptoWalletsResponse,
+  StockBalance,
+  StockBalanceResponse,
   Transaction,
   TransactionsResponse,
   WallbitApiError,
@@ -24,6 +33,13 @@ export class WallbitRequestError extends Error {
 
 export type TransactionsPage = {
   data: Transaction[]
+  pages: number
+  currentPage: number
+  count: number
+}
+
+export type AssetsPage = {
+  data: Asset[]
   pages: number
   currentPage: number
   count: number
@@ -98,6 +114,145 @@ export async function getLatestTransactions(
     currentPage,
     count,
   }
+}
+
+export async function getStocksBalance(apiKey: string): Promise<StockBalance[]> {
+  const response = await fetch(`${WALLBIT_API_BASE_URL}/api/public/v1/balance/stocks`, {
+    method: "GET",
+    headers: {
+      "X-API-Key": apiKey,
+    },
+  })
+
+  if (!response.ok) {
+    const errorPayload = (await safeParseError(response)) ?? {}
+    const message = getErrorMessage(response.status, errorPayload)
+
+    throw new WallbitRequestError(
+      message,
+      response.status,
+      errorPayload.code,
+      errorPayload.retry_after,
+    )
+  }
+
+  const payload = (await response.json()) as StockBalanceResponse
+  return Array.isArray(payload.data) ? payload.data : []
+}
+
+export async function getAccountDetails(apiKey: string): Promise<AccountDetails | null> {
+  const response = await fetch(`${WALLBIT_API_BASE_URL}/api/public/v1/account-details?country=US&currency=USD`, {
+    method: "GET",
+    headers: {
+      "X-API-Key": apiKey,
+    },
+  });
+
+  if (!response.ok) {
+    const errorPayload = (await safeParseError(response)) ?? {}
+    const message = getErrorMessage(response.status, errorPayload)
+
+    throw new WallbitRequestError(
+      message,
+      response.status,
+      errorPayload.code,
+      errorPayload.retry_after,
+    )
+  }
+
+  const payload = (await response.json()) as AccountDetailsResponse
+  return payload.data ?? null
+}
+
+export async function getWallets(apiKey: string): Promise<CryptoWallet[]> {
+  const response = await fetch(`${WALLBIT_API_BASE_URL}/api/public/v1/wallets`, {
+    method: "GET",
+    headers: {
+      "X-API-Key": apiKey,
+    },
+  })
+
+  if (!response.ok) {
+    const errorPayload = (await safeParseError(response)) ?? {}
+    const message = getErrorMessage(response.status, errorPayload)
+
+    throw new WallbitRequestError(
+      message,
+      response.status,
+      errorPayload.code,
+      errorPayload.retry_after,
+    )
+  }
+
+  const payload = (await response.json()) as CryptoWalletsResponse
+  return Array.isArray(payload.data) ? payload.data : []
+}
+
+export async function getAssets(apiKey: string, page = 1, limit = 20, search?: string): Promise<AssetsPage> {
+  const url = new URL(`${WALLBIT_API_BASE_URL}/api/public/v1/assets`)
+  url.searchParams.set("page", String(page))
+  url.searchParams.set("limit", String(limit))
+  if (typeof search === "string" && search.trim().length > 0) {
+    url.searchParams.set("search", search.trim())
+  }
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "X-API-Key": apiKey,
+    },
+  })
+
+  if (!response.ok) {
+    const errorPayload = (await safeParseError(response)) ?? {}
+    const message = getErrorMessage(response.status, errorPayload)
+
+    throw new WallbitRequestError(
+      message,
+      response.status,
+      errorPayload.code,
+      errorPayload.retry_after,
+    )
+  }
+
+  const payload = (await response.json()) as AssetsResponse
+  const assets = Array.isArray(payload.data) ? payload.data : []
+  const pages = typeof payload.pages === "number" && payload.pages > 0 ? payload.pages : 1
+  const currentPage =
+    typeof payload.current_page === "number" && payload.current_page > 0 ? payload.current_page : 1
+  const count = typeof payload.count === "number" ? payload.count : assets.length
+
+  return {
+    data: assets,
+    pages,
+    currentPage,
+    count,
+  }
+}
+
+export async function getAsset(apiKey: string, symbol: string): Promise<Asset> {
+  const encodedSymbol = encodeURIComponent(symbol)
+  const response = await fetch(`${WALLBIT_API_BASE_URL}/api/public/v1/assets/${encodedSymbol}`, {
+    method: "GET",
+    headers: {
+      "X-API-Key": apiKey,
+    },
+  })
+
+  if (!response.ok) {
+    const errorPayload = (await safeParseError(response)) ?? {}
+    const message = getErrorMessage(response.status, errorPayload)
+
+    throw new WallbitRequestError(
+      message,
+      response.status,
+      errorPayload.code,
+      errorPayload.retry_after,
+    )
+  }
+
+  const payload = (await response.json()) as AssetResponse
+  return payload.data
 }
 
 async function safeParseError(response: Response): Promise<WallbitApiError | null> {

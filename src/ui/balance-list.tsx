@@ -30,9 +30,7 @@ export function BalanceList({ balances, hidden }: BalanceListProps) {
           <strong>
             <span fg={getCurrencyColor(balance.currency)}>{balance.currency.padEnd(6, " ")}</span>
           </strong>
-          {hidden
-            ? maskAmount(balanceFormatter.format(balance.balance))
-            : balanceFormatter.format(balance.balance)}
+          {`$${hidden ? maskAmount(balanceFormatter.format(balance.balance)) : balanceFormatter.format(balance.balance)}`}
         </text>
       ))}
     </box>

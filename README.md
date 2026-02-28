@@ -12,6 +12,15 @@ Terminal dashboard for Wallbit.
 - Bun installed (`bun --version`)
 - A Wallbit API key with `read` permission
 
+## Features
+
+- Session-based masked API key login (no env var required)
+- Checking balance panel
+- Crypto wallets panel
+- Latest transactions panel with pagination
+- Stocks portfolio side panel
+- Account holder name displayed under the logo
+
 ## Setup
 
 1. Install dependencies:
@@ -36,10 +45,13 @@ On each new session, the app shows a masked API key input screen. Paste your Wal
 
 ## Keyboard shortcuts
 
-- `h`: hide/show balance amounts
-- `t`: hide/show transaction amounts
+- `h`: hide/show all currency values (balances + transactions)
 - `left` / `right`: previous/next transactions page
 - `esc` or `ctrl+c` or `q`: quit
+
+## Disclaimer
+
+- This is a community project and is not affiliated with Wallbit.
 
 ## Security disclosure
 

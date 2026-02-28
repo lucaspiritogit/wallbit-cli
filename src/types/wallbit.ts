@@ -7,6 +7,65 @@ export type CheckingBalanceResponse = {
   data: CheckingBalance[]
 }
 
+export type StockBalance = {
+  symbol: string
+  shares: number | string
+}
+
+export type StockBalanceResponse = {
+  data: StockBalance[]
+}
+
+export type CryptoWallet = {
+  address: string
+  network: string
+  currency_code: string
+}
+
+export type CryptoWalletsResponse = {
+  data: CryptoWallet[]
+}
+
+export type Asset = {
+  symbol: string
+  name: string
+  price: number | string
+  asset_type?: string | null
+  exchange?: string | null
+  logo_url?: string | null
+  sector?: string | null
+  market_cap_m?: string | null
+  description?: string | null
+  country?: string | null
+  ceo?: string | null
+  employees?: string | null
+}
+
+export type AssetsResponse = {
+  data: Asset[]
+  pages: number
+  current_page: number
+  count: number
+}
+
+export type AssetResponse = {
+  data: Asset
+}
+
+export type AccountDetailsAddress = {
+  country?: string
+}
+
+export type AccountDetails = {
+  holder_name?: string
+  country?: string
+  address?: AccountDetailsAddress | null
+}
+
+export type AccountDetailsResponse = {
+  data: AccountDetails
+}
+
 export type WallbitApiError = {
   error?: string
   message?: string
