@@ -9,8 +9,43 @@ Terminal dashboard for Wallbit.
 
 ## Requirements
 
-- Bun installed (`bun --version`)
 - A Wallbit API key with `read` permission
+
+## Install (No Bun Required)
+
+### macOS / Linux
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lpirito/wallbit-cli/main/scripts/install.sh | sh
+```
+
+Optional flags:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/lpirito/wallbit-cli/main/scripts/install.sh | sh -s -- --repo lpirito/wallbit-cli --version v0.1.0 --install-dir "$HOME/.local/bin"
+```
+
+### Windows (PowerShell)
+
+```powershell
+iwr https://raw.githubusercontent.com/lpirito/wallbit-cli/main/scripts/install.ps1 -OutFile install.ps1; ./install.ps1
+```
+
+Optional flags:
+
+```powershell
+./install.ps1 -Repo lpirito/wallbit-cli -Version v0.1.0 -InstallDir "$HOME\.local\bin"
+```
+
+After install, run:
+
+```bash
+wallbit-cli
+```
+
+## Development Requirements
+
+- Bun installed (`bun --version`)
 
 ## Features
 
@@ -19,7 +54,7 @@ Terminal dashboard for Wallbit.
 - Crypto wallets panel
 - Latest transactions panel with pagination
 - Stocks portfolio side panel
-- Account holder name displayed under the logo
+- Interactive asset list
 
 ## Setup
 
