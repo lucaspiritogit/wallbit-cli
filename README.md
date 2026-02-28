@@ -7,6 +7,12 @@ Terminal dashboard for Wallbit.
 
 ![wallbit-demo-image](./assets/demo.png)
 
+![wallbit-demo-image](./assets/assets-table.png)
+
+![wallbit-demo-image](./assets/assets-search.png)
+
+![wallbit-demo-image](./assets/asset-details.png)
+
 ## Requirements
 
 - A Wallbit API key with `read` permission
