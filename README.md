@@ -28,7 +28,7 @@ curl -fsSL https://raw.githubusercontent.com/lucaspiritogit/wallbit-cli/main/ins
 ### Windows (PowerShell)
 
 ```powershell
-iwr https://raw.githubusercontent.com/lucaspiritogit/wallbit-cli/main/install.ps1 -OutFile install.ps1; ./install.ps1
+irm https://raw.githubusercontent.com/lucaspiritogit/wallbit-cli/main/install.ps1 | iex
 ```
 
 After install, run:
