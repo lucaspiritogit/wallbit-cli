@@ -16,6 +16,7 @@ Terminal dashboard for Wallbit.
 ## Requirements
 
 - A Wallbit API key with `read` permission
+- Optional: an OpenAI API key to enable the AI agent chat
 
 ## Install
 

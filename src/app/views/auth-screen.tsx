@@ -54,12 +54,7 @@ export function AuthScreen(props: AuthScreenProps) {
               options={[
                 {
                   name: "OpenAI",
-                  description: props.openAiAvailable
-                    ? "ready"
-                    : props.openAiKeyLoaded
-                      ? "key missing"
-                      : "checking keychain",
-                },
+                  description: "ChatGPT API Key"},
                 {
                   name: "Continue without AI",
                   description: "disable agent chat",
