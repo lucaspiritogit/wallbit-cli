@@ -43,6 +43,13 @@ export function AuthScreen(props: AuthScreenProps) {
             <select
               focused
               width={48}
+              height={4}
+              textColor="#D1D5DB"
+              focusedTextColor="#E5E7EB"
+              selectedTextColor="#93C5FD"
+              descriptionColor="#9CA3AF"
+              selectedDescriptionColor="#60A5FA"
+              selectedBackgroundColor="#1F2937"
               selectedIndex={props.aiProviderSelectionIndex}
               options={[
                 {

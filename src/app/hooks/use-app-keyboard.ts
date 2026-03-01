@@ -114,28 +114,24 @@ export function useAppKeyboard(params: UseAppKeyboardParams) {
       return
     }
 
-    if (params.authMode !== null) {
-      if (params.authMode === "wallbit") {
-        if (keyName === "enter" || keyName === "return") {
-          void params.submitAuthInput()
-          return
-        }
-
-        if (keyName === "backspace" || keyName === "delete") {
-          params.setAuthInput((current) => current.slice(0, -1))
-          return
-        }
-
-        if (!key.ctrl && !key.meta && !key.option) {
-          const typedText = getPrintableText(key.sequence)
-          if (typedText.length > 0) {
-            params.setAuthInput((current) => current + typedText)
-            params.setAuthError(null)
-            return
-          }
-        }
-
+    if (params.authMode === "wallbit") {
+      if (keyName === "enter" || keyName === "return") {
+        void params.submitAuthInput()
         return
+      }
+
+      if (keyName === "backspace" || keyName === "delete") {
+        params.setAuthInput((current) => current.slice(0, -1))
+        return
+      }
+
+      if (!key.ctrl && !key.meta && !key.option) {
+        const typedText = getPrintableText(key.sequence)
+        if (typedText.length > 0) {
+          params.setAuthInput((current) => current + typedText)
+          params.setAuthError(null)
+          return
+        }
       }
 
       return
