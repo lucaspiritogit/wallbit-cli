@@ -17,10 +17,6 @@ type DashboardFullProps = {
   showAgentChat: boolean
   aiStatusLabel: string
   chatMessages: AgentChatMessage[]
-  chatInput: string
-  onChatInputChange: (value: string) => void
-  onChatInputSubmit: (value: string) => void
-  chatFocused: boolean
   chatLoading: boolean
   chatError: string | null
   chatVisibleRows: number
@@ -42,19 +38,6 @@ export function DashboardFull(props: DashboardFullProps) {
         </box>
       ) : null}
       <box flexDirection="row" width="100%" flexGrow={1} alignItems="flex-start" marginTop={props.showLogo ? 1 : 0}>
-        {props.showAgentChat ? (
-          <AgentChatPanel
-            messages={props.chatMessages}
-            inputValue={props.chatInput}
-            onInputValueChange={props.onChatInputChange}
-            onInputSubmit={props.onChatInputSubmit}
-            isFocused={props.chatFocused}
-            isLoading={props.chatLoading}
-            error={props.chatError}
-            visibleRows={props.chatVisibleRows}
-            scrollOffset={props.chatScrollOffset}
-          />
-        ) : null}
         <box flexDirection="column" flexGrow={1} minWidth={56} height="100%">
           <box flexDirection="row" width="100%">
             <box border padding={1} flexDirection="column" flexGrow={2}>
@@ -131,6 +114,15 @@ export function DashboardFull(props: DashboardFullProps) {
             )}
           </box>
         </box>
+        {props.showAgentChat ? (
+          <AgentChatPanel
+            messages={props.chatMessages}
+            isLoading={props.chatLoading}
+            error={props.chatError}
+            visibleRows={props.chatVisibleRows}
+            scrollOffset={props.chatScrollOffset}
+          />
+        ) : null}
       </box>
     </box>
   )

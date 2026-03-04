@@ -9,10 +9,6 @@ export type AgentChatMessage = {
 
 type AgentChatPanelProps = {
   messages: AgentChatMessage[]
-  inputValue: string
-  onInputValueChange: (value: string) => void
-  onInputSubmit: (value: string) => void
-  isFocused: boolean
   isLoading: boolean
   error: string | null
   visibleRows: number
@@ -81,24 +77,12 @@ function toWrappedLines(value: string, maxWidth: number): string[] {
 
 export function AgentChatPanel({
   messages,
-  inputValue,
-  onInputValueChange,
-  onInputSubmit,
-  isFocused,
   isLoading,
   error,
   visibleRows,
   scrollOffset,
 }: AgentChatPanelProps) {
   const messageWidth = 48
-  const handleInputSubmit = (value: string | object) => {
-    if (typeof value === "string") {
-      onInputSubmit(value)
-      return
-    }
-
-    onInputSubmit(inputValue)
-  }
 
   const allLines = messages.flatMap<ChatLine>((message) => {
     const contentLines = toWrappedLines(message.content, messageWidth)
@@ -138,13 +122,13 @@ export function AgentChatPanel({
   const visibleLines = allLines.slice(start, end)
 
   return (
-    <box border padding={1} marginRight={1} flexDirection="column" width={52} height="100%">
+    <box border padding={1} marginLeft={1} flexDirection="column" width={52} height="100%">
       <box flexDirection="row" justifyContent="space-between" width="100%">
         <text>
           <strong>Agent Chat</strong>
         </text>
         <text>
-          <span fg={isFocused ? "#93C5FD" : "#9CA3AF"}>{isFocused ? "Focused" : "Press c"}</span>
+          <span fg="#9CA3AF">Ctrl+J to close</span>
         </text>
       </box>
       <box marginTop={1} flexDirection="column" flexGrow={1} overflow="hidden">
@@ -171,21 +155,6 @@ export function AgentChatPanel({
             </text>
           ))
         )}
-      </box>
-      <box marginTop={1} border flexDirection="column" padding={1}>
-        <input
-          value={inputValue}
-          focused={isFocused}
-          placeholder="press c to type..."
-          maxLength={600}
-          width={46}
-          textColor="#D1D5DB"
-          backgroundColor="#111827"
-          focusedBackgroundColor="#1F2937"
-          cursorColor="#93C5FD"
-          onInput={onInputValueChange}
-          onSubmit={handleInputSubmit}
-        />
       </box>
       {error ? (
         <box marginTop={1}>

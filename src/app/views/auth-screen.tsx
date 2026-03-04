@@ -1,6 +1,6 @@
 type AuthScreenProps = {
   authInput: string
-  authMode: "wallbit" | "ai-provider"
+  authMode: "wallbit" | "ai-provider" | "openai-key"
   aiProviderSelectionIndex: number
   openAiAvailable: boolean
   openAiKeyLoaded: boolean
@@ -10,11 +10,14 @@ type AuthScreenProps = {
 }
 
 export function AuthScreen(props: AuthScreenProps) {
-  const title = props.authMode === "wallbit" ? "Wallbit API key" : "AI capabilities"
+  const title =
+    props.authMode === "wallbit" ? "Wallbit API key" : props.authMode === "openai-key" ? "OpenAI API key" : "AI capabilities"
   const helperText =
     props.authMode === "wallbit"
       ? "Paste your Wallbit API key and press enter to access your dashboard"
-      : "Select AI provider. Choose no AI to enter dashboard without chat."
+      : props.authMode === "openai-key"
+        ? "Paste your OpenAI API key, press enter to save it to keychain, and continue"
+      : "You can optionally enable AI capabilities to interact with the agent (beta)."
 
   return (
     <box flexDirection="column" alignItems="center">
@@ -34,7 +37,7 @@ export function AuthScreen(props: AuthScreenProps) {
         </text>
       </box>
       <box marginTop={1}>
-        {props.authMode === "wallbit" ? (
+        {props.authMode === "wallbit" || props.authMode === "openai-key" ? (
           <text>
             <span fg="#E5E7EB">{`> ${"*".repeat(props.authInput.length)}|`}</span>
           </text>
@@ -53,11 +56,12 @@ export function AuthScreen(props: AuthScreenProps) {
               selectedIndex={props.aiProviderSelectionIndex}
               options={[
                 {
-                  name: "OpenAI",
-                  description: "ChatGPT API Key"},
-                {
                   name: "Continue without AI",
-                  description: "disable agent chat",
+                  description: "Disable agent chat",
+                },
+                {
+                  name: "OpenAI",
+                  description: "ChatGPT API Key",
                 },
               ]}
               onChange={(index) => props.onAiProviderChange(index)}

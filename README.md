@@ -18,6 +18,21 @@ Terminal dashboard for Wallbit.
 - A Wallbit API key with `read` permission
 - Optional: an OpenAI API key to enable the AI agent chat
 
+## Security disclosure
+
+The API keys you use are never stored on an external server or log in anyway. The Wallbit CLI will request the API key on startup everytime, and the optional AI provider token is stored in your OS Keychain / Secret manager.
+
+### Keychain in macOS
+
+https://support.apple.com/guide/keychain-access/what-is-keychain-access-kyca1083/mac
+
+### About secret manager for Windows
+
+https://grahamwatts.co.uk/windows-secrets/
+
+- Never share terminal output containing environment variables.
+- Never paste or commit API keys into code, screenshots, logs, or chat.
+
 ## Install
 
 ### macOS / Linux
@@ -51,6 +66,8 @@ wallbit-cli
 - Latest transactions panel with pagination
 - Stocks portfolio side panel
 - Interactive asset list
+- Small AI chat to talk with the wallbit-cli agent and get customized insights or recommendations (experimental)
+- Command bar to execute actions with `!` or ask a question to the agent using `?`
 
 ## Setup
 
@@ -81,13 +98,9 @@ On each new session, the app shows a masked API key input screen. Paste your Wal
 - `w`: open wallets modal (copy wallet addresses)
 - `up` / `down` + `c` or `enter` (inside wallets modal): select and copy address
 - `esc` or `ctrl+c` or `q`: quit
+- `:` focus command bar to start typing
+- `ctrl+j` open chat agent window
 
 ## Disclaimer
 
 - This is a community project and is not affiliated with Wallbit.
-
-## Security disclosure
-
-- Never share terminal output containing environment variables.
-- Never paste or commit API keys into code, screenshots, logs, or chat.
-- Sensitive AI settings are persisted via the operating system keychain instead of plaintext files.

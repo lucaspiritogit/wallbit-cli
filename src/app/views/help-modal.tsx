@@ -9,7 +9,7 @@ export function HelpModal() {
           <text>
             <span fg="#93C5FD">Global</span>
             <br />
-            <span fg="#D1D5DB">?           Toggle this help modal</span>
+            <span fg="#D1D5DB">!help       Open this help modal from command bar</span>
             <br />
             <span fg="#D1D5DB">ctrl+c      Exit the CLI</span>
             <br />
@@ -26,11 +26,16 @@ export function HelpModal() {
             <br />
             <span fg="#D1D5DB">w           Open wallets modal</span>
             <br />
-            <span fg="#D1D5DB">c           Focus agent chat</span>
+            <span fg="#D1D5DB">ctrl+j      Toggle agent chat panel</span>
             <br />
-            <span fg="#D1D5DB">up/down     Scroll agent chat (focused)</span>
             <br />
-            <span fg="#D1D5DB">pgup/pgdn   Faster chat scroll</span>
+            <span fg="#93C5FD">Command Bar</span>
+            <br />
+            <span fg="#D1D5DB">!command    Execute actions (trade or account)</span>
+            <br />
+            <span fg="#D1D5DB">?question   Ask the agent from the bottom bar</span>
+            <br />
+            <span fg="#D1D5DB">pgup/pgdn   Scroll chat while chat panel is open</span>
             <br />
             <br />
             <span fg="#93C5FD">Assets Modal</span>

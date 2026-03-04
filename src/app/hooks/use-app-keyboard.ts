@@ -1,12 +1,16 @@
-import { useKeyboard } from "@opentui/react"
+import { useEffect } from "react"
 import type { Dispatch, SetStateAction } from "react"
 import { PAGINATION_THROTTLE_MS } from "../constants"
 import { getPrintableText, isHelpShortcut, isThrottleWindowElapsed } from "../helpers"
 import type { AppState, AssetsModalState, WalletsModalState } from "../types"
 
 type RendererLike = {
-  destroy: () => void
-  copyToClipboardOSC52: (value: string) => boolean
+  keyInput: {
+    on(eventName: "keypress", listener: (event: AppKeyEvent) => void): void
+    on(eventName: "paste", listener: (event: AppPasteEvent) => void): void
+    off(eventName: "keypress", listener: (event: AppKeyEvent) => void): void
+    off(eventName: "paste", listener: (event: AppPasteEvent) => void): void
+  }
 }
 
 type AppKeyEvent = {
@@ -18,9 +22,13 @@ type AppKeyEvent = {
   shift: boolean
 }
 
+type AppPasteEvent = {
+  text: string
+}
+
 type UseAppKeyboardParams = {
   renderer: RendererLike
-  authMode: "wallbit" | "ai-provider" | null
+  authMode: "wallbit" | "ai-provider" | "openai-key" | null
   authInput: string
   setAuthInput: Dispatch<SetStateAction<string>>
   setAuthError: Dispatch<SetStateAction<string | null>>
@@ -39,296 +47,359 @@ type UseAppKeyboardParams = {
   loadTransactionsPage: (page: number) => Promise<void>
   loadAssetsPage: (page: number, searchQuery: string) => Promise<void>
   openAssetPreview: (symbol: string) => Promise<void>
-  chatFocused: boolean
-  setChatFocused: Dispatch<SetStateAction<boolean>>
+  chatOpen: boolean
+  setChatOpen: Dispatch<SetStateAction<boolean>>
   chatEnabled: boolean
   chatScrollOffset: number
   setChatScrollOffset: Dispatch<SetStateAction<number>>
+  commandBarEnabled: boolean
+  commandBarFocused: boolean
+  setCommandBarFocused: Dispatch<SetStateAction<boolean>>
 }
 
 export function useAppKeyboard(params: UseAppKeyboardParams) {
-  useKeyboard((key: AppKeyEvent) => {
-    const keyName = key.name.toLowerCase()
-    if (params.chatFocused) {
-      if (keyName === "escape") {
-        params.setChatFocused(false)
+  const renderer = params.renderer
+  const authMode = params.authMode
+  const setAuthInput = params.setAuthInput
+  const setAuthError = params.setAuthError
+  const submitAuthInput = params.submitAuthInput
+  const helpModalOpen = params.helpModalOpen
+  const setHelpModalOpen = params.setHelpModalOpen
+  const setHideValues = params.setHideValues
+  const state = params.state
+  const assetsModal = params.assetsModal
+  const setAssetsModal = params.setAssetsModal
+  const walletsModal = params.walletsModal
+  const setWalletsModal = params.setWalletsModal
+  const copySelectedWallet = params.copySelectedWallet
+  const lastPaginationKeyAtRef = params.lastPaginationKeyAtRef
+  const loadTransactionsPage = params.loadTransactionsPage
+  const loadAssetsPage = params.loadAssetsPage
+  const openAssetPreview = params.openAssetPreview
+  const chatOpen = params.chatOpen
+  const setChatOpen = params.setChatOpen
+  const chatEnabled = params.chatEnabled
+  const setChatScrollOffset = params.setChatScrollOffset
+  const commandBarEnabled = params.commandBarEnabled
+  const commandBarFocused = params.commandBarFocused
+  const setCommandBarFocused = params.setCommandBarFocused
+
+  useEffect(() => {
+    const handleKeyPress = (key: AppKeyEvent) => {
+      const keyName = key.name.toLowerCase()
+      const isCommandFocusShortcut = key.sequence === ":" || (keyName === "semicolon" && key.shift)
+
+      if (key.ctrl && keyName === "j" && chatEnabled) {
+        setChatOpen((current) => !current)
         return
       }
 
-      if (keyName === "up") {
-        params.setChatScrollOffset((current) => current + 3)
+      if (commandBarEnabled && isCommandFocusShortcut && !commandBarFocused) {
+        setCommandBarFocused(true)
         return
       }
 
-      if (keyName === "down") {
-        params.setChatScrollOffset((current) => Math.max(0, current - 3))
+      if (commandBarFocused && keyName === "escape") {
+        setCommandBarFocused(false)
         return
       }
 
-      if (keyName === "pageup") {
-        params.setChatScrollOffset((current) => current + 12)
+      if (chatOpen && keyName === "pageup") {
+        setChatScrollOffset((current) => current + 12)
         return
       }
 
-      if (keyName === "pagedown") {
-        params.setChatScrollOffset((current) => Math.max(0, current - 12))
+      if (chatOpen && keyName === "pagedown") {
+        setChatScrollOffset((current) => Math.max(0, current - 12))
         return
       }
 
-      return
-    }
+      if (commandBarFocused) {
+        return
+      }
 
-    if (isHelpShortcut(key)) {
-      params.setHelpModalOpen((current) => !current)
-      return
-    }
+      if (isHelpShortcut(key)) {
+        setHelpModalOpen((current) => !current)
+        return
+      }
 
-    if (key.name === "escape" && params.helpModalOpen) {
-      params.setHelpModalOpen(false)
-      return
-    }
+      if (keyName === "escape" && helpModalOpen) {
+        setHelpModalOpen(false)
+        return
+      }
 
-    if (key.name === "escape" && params.assetsModal.open) {
-      if (params.assetsModal.previewOpen) {
-        params.setAssetsModal((current) => ({
+      if (keyName === "escape" && assetsModal.open) {
+        if (assetsModal.previewOpen) {
+          setAssetsModal((current) => ({
+            ...current,
+            previewOpen: false,
+            previewError: null,
+            previewLoading: false,
+          }))
+        } else {
+          setAssetsModal((current) => ({ ...current, open: false, searchMode: false }))
+        }
+        return
+      }
+
+      if (keyName === "escape" && walletsModal.open) {
+        setWalletsModal((current) => ({
           ...current,
+          open: false,
+          status: {
+            type: "idle",
+            message: "",
+          },
+        }))
+        return
+      }
+
+      if (authMode === "wallbit" || authMode === "openai-key") {
+        if (keyName === "enter" || keyName === "return") {
+          void submitAuthInput()
+          return
+        }
+
+        if (keyName === "backspace" || keyName === "delete") {
+          setAuthInput((current) => current.slice(0, -1))
+          return
+        }
+
+        if (!key.ctrl && !key.meta && !key.option) {
+          const typedText = getPrintableText(key.sequence)
+          if (typedText.length > 0) {
+            setAuthInput((current) => current + typedText)
+            setAuthError(null)
+            return
+          }
+        }
+
+        return
+      }
+
+      if (walletsModal.open && state.status === "success") {
+        if (keyName === "down") {
+          const nextSelectedIndex = Math.min(walletsModal.selectedIndex + 1, Math.max(0, state.wallets.length - 1))
+          setWalletsModal((current) => ({
+            ...current,
+            selectedIndex: nextSelectedIndex,
+            status: {
+              type: "idle",
+              message: "",
+            },
+          }))
+          return
+        }
+
+        if (keyName === "up") {
+          const nextSelectedIndex = Math.max(0, walletsModal.selectedIndex - 1)
+          setWalletsModal((current) => ({
+            ...current,
+            selectedIndex: nextSelectedIndex,
+            status: {
+              type: "idle",
+              message: "",
+            },
+          }))
+          return
+        }
+
+        if (keyName === "c") {
+          copySelectedWallet(walletsModal.selectedIndex)
+          return
+        }
+
+        if (keyName === "enter" || keyName === "return") {
+          copySelectedWallet(walletsModal.selectedIndex)
+          return
+        }
+
+        return
+      }
+
+      if (keyName === "h") {
+        setHideValues((current) => !current)
+        return
+      }
+
+      if (keyName === "w" && state.status === "success" && !assetsModal.open && !walletsModal.open) {
+        setWalletsModal({
+          open: true,
+          selectedIndex: 0,
+          status: {
+            type: "idle",
+            message: "",
+          },
+        })
+        return
+      }
+
+      if (keyName === "t" && state.status === "success" && !assetsModal.open) {
+        setAssetsModal((current) => ({
+          ...current,
+          open: true,
+          searchMode: false,
           previewOpen: false,
           previewError: null,
           previewLoading: false,
         }))
-      } else {
-        params.setAssetsModal((current) => ({ ...current, open: false, searchMode: false }))
-      }
-      return
-    }
 
-    if (key.name === "escape" && params.walletsModal.open) {
-      params.setWalletsModal((current) => ({
-        ...current,
-        open: false,
-        status: {
-          type: "idle",
-          message: "",
-        },
-      }))
-      return
-    }
-
-    if (params.authMode === "wallbit") {
-      if (keyName === "enter" || keyName === "return") {
-        void params.submitAuthInput()
-        return
-      }
-
-      if (keyName === "backspace" || keyName === "delete") {
-        params.setAuthInput((current) => current.slice(0, -1))
-        return
-      }
-
-      if (!key.ctrl && !key.meta && !key.option) {
-        const typedText = getPrintableText(key.sequence)
-        if (typedText.length > 0) {
-          params.setAuthInput((current) => current + typedText)
-          params.setAuthError(null)
-          return
+        if (assetsModal.assets.length === 0 && !assetsModal.loading) {
+          void loadAssetsPage(1, assetsModal.searchApplied)
         }
-      }
-
-      return
-    }
-
-    if (
-      keyName === "c" &&
-      params.chatEnabled &&
-      params.state.status === "success" &&
-      !params.helpModalOpen &&
-      !params.assetsModal.open &&
-      !params.walletsModal.open &&
-      !params.chatFocused
-    ) {
-      params.setChatFocused(true)
-      return
-    }
-
-    if (params.walletsModal.open && params.state.status === "success") {
-      if (keyName === "down") {
-        const nextSelectedIndex = Math.min(params.walletsModal.selectedIndex + 1, Math.max(0, params.state.wallets.length - 1))
-        params.setWalletsModal((current) => ({
-          ...current,
-          selectedIndex: nextSelectedIndex,
-          status: {
-            type: "idle",
-            message: "",
-          },
-        }))
         return
       }
 
-      if (keyName === "up") {
-        const nextSelectedIndex = Math.max(0, params.walletsModal.selectedIndex - 1)
-        params.setWalletsModal((current) => ({
-          ...current,
-          selectedIndex: nextSelectedIndex,
-          status: {
-            type: "idle",
-            message: "",
-          },
-        }))
-        return
-      }
+      if (assetsModal.open && !assetsModal.previewOpen && state.status === "success") {
+        const isSlashKey = key.sequence === "/" || key.name === "slash" || key.name === "/"
 
-      if (keyName === "c") {
-        params.copySelectedWallet(params.walletsModal.selectedIndex)
-        return
-      }
-
-      if (keyName === "enter" || keyName === "return") {
-        params.copySelectedWallet(params.walletsModal.selectedIndex)
-        return
-      }
-
-      return
-    }
-
-    if (keyName === "h") {
-      params.setHideValues((current) => !current)
-      return
-    }
-
-    if (keyName === "w" && params.state.status === "success" && !params.assetsModal.open && !params.walletsModal.open) {
-      params.setWalletsModal({
-        open: true,
-        selectedIndex: 0,
-        status: {
-          type: "idle",
-          message: "",
-        },
-      })
-      return
-    }
-
-    if (keyName === "t" && params.state.status === "success" && !params.assetsModal.open) {
-      params.setAssetsModal((current) => ({
-        ...current,
-        open: true,
-        searchMode: false,
-        previewOpen: false,
-        previewError: null,
-        previewLoading: false,
-      }))
-
-      if (params.assetsModal.assets.length === 0 && !params.assetsModal.loading) {
-        void params.loadAssetsPage(1, params.assetsModal.searchApplied)
-      }
-      return
-    }
-
-    if (params.assetsModal.open && !params.assetsModal.previewOpen && params.state.status === "success") {
-      const isSlashKey = key.sequence === "/" || key.name === "slash" || key.name === "/"
-
-      if (isSlashKey && !params.assetsModal.searchMode) {
-        params.setAssetsModal((current) => ({
-          ...current,
-          searchMode: true,
-          searchInput: current.searchApplied,
-        }))
-        return
-      }
-
-      if (params.assetsModal.searchMode) {
-        if (key.name === "escape") {
-          params.setAssetsModal((current) => ({
+        if (isSlashKey && !assetsModal.searchMode) {
+          setAssetsModal((current) => ({
             ...current,
-            searchMode: false,
+            searchMode: true,
             searchInput: current.searchApplied,
           }))
           return
         }
 
+        if (assetsModal.searchMode) {
+          if (keyName === "escape") {
+            setAssetsModal((current) => ({
+              ...current,
+              searchMode: false,
+              searchInput: current.searchApplied,
+            }))
+            return
+          }
+
+          return
+        }
+      }
+
+      if (assetsModal.open && !assetsModal.previewOpen && state.status === "success" && keyName === "down") {
+        setAssetsModal((current) => ({
+          ...current,
+          selectedIndex: Math.min(current.selectedIndex + 1, Math.max(0, current.assets.length - 1)),
+        }))
         return
+      }
+
+      if (assetsModal.open && !assetsModal.previewOpen && state.status === "success" && keyName === "up") {
+        setAssetsModal((current) => ({
+          ...current,
+          selectedIndex: Math.max(0, current.selectedIndex - 1),
+        }))
+        return
+      }
+
+      if (assetsModal.open && !assetsModal.previewOpen && state.status === "success" && (keyName === "enter" || keyName === "return")) {
+        const selectedAsset = assetsModal.assets[assetsModal.selectedIndex]
+        if (!selectedAsset) {
+          return
+        }
+
+        void openAssetPreview(selectedAsset.symbol)
+        return
+      }
+
+      if (assetsModal.open && !assetsModal.previewOpen && state.status === "success" && keyName === "right") {
+        if (!isThrottleWindowElapsed(lastPaginationKeyAtRef, PAGINATION_THROTTLE_MS)) {
+          return
+        }
+
+        if (assetsModal.loading || assetsModal.page >= assetsModal.totalPages) {
+          return
+        }
+
+        void loadAssetsPage(assetsModal.page + 1, assetsModal.searchApplied)
+        return
+      }
+
+      if (assetsModal.open && !assetsModal.previewOpen && state.status === "success" && keyName === "left") {
+        if (!isThrottleWindowElapsed(lastPaginationKeyAtRef, PAGINATION_THROTTLE_MS)) {
+          return
+        }
+
+        if (assetsModal.loading || assetsModal.page <= 1) {
+          return
+        }
+
+        void loadAssetsPage(assetsModal.page - 1, assetsModal.searchApplied)
+        return
+      }
+
+      if (state.status === "success" && keyName === "right") {
+        if (!isThrottleWindowElapsed(lastPaginationKeyAtRef, PAGINATION_THROTTLE_MS)) {
+          return
+        }
+
+        if (state.transactionsLoading || state.transactionsPage >= state.transactionsTotalPages) {
+          return
+        }
+
+        void loadTransactionsPage(state.transactionsPage + 1)
+        return
+      }
+
+      if (state.status === "success" && keyName === "left") {
+        if (!isThrottleWindowElapsed(lastPaginationKeyAtRef, PAGINATION_THROTTLE_MS)) {
+          return
+        }
+
+        if (state.transactionsLoading || state.transactionsPage <= 1) {
+          return
+        }
+
+        void loadTransactionsPage(state.transactionsPage - 1)
       }
     }
 
-    if (params.assetsModal.open && !params.assetsModal.previewOpen && params.state.status === "success" && keyName === "down") {
-      params.setAssetsModal((current) => ({
-        ...current,
-        selectedIndex: Math.min(current.selectedIndex + 1, Math.max(0, current.assets.length - 1)),
-      }))
-      return
+    const handlePaste = (event: AppPasteEvent) => {
+      if (authMode !== "wallbit" && authMode !== "openai-key") {
+        return
+      }
+
+      const pastedText = getPrintableText(event.text)
+      if (pastedText.length === 0) {
+        return
+      }
+
+      setAuthInput((current) => current + pastedText)
+      setAuthError(null)
     }
 
-    if (params.assetsModal.open && !params.assetsModal.previewOpen && params.state.status === "success" && keyName === "up") {
-      params.setAssetsModal((current) => ({
-        ...current,
-        selectedIndex: Math.max(0, current.selectedIndex - 1),
-      }))
-      return
+    renderer.keyInput.on("keypress", handleKeyPress)
+    renderer.keyInput.on("paste", handlePaste)
+
+    return () => {
+      renderer.keyInput.off("keypress", handleKeyPress)
+      renderer.keyInput.off("paste", handlePaste)
     }
-
-    if (
-      params.assetsModal.open &&
-      !params.assetsModal.previewOpen &&
-      params.state.status === "success" &&
-      (keyName === "enter" || keyName === "return")
-    ) {
-      const selectedAsset = params.assetsModal.assets[params.assetsModal.selectedIndex]
-      if (!selectedAsset) {
-        return
-      }
-
-      void params.openAssetPreview(selectedAsset.symbol)
-      return
-    }
-
-    if (params.assetsModal.open && !params.assetsModal.previewOpen && params.state.status === "success" && keyName === "right") {
-      if (!isThrottleWindowElapsed(params.lastPaginationKeyAtRef, PAGINATION_THROTTLE_MS)) {
-        return
-      }
-
-      if (params.assetsModal.loading || params.assetsModal.page >= params.assetsModal.totalPages) {
-        return
-      }
-
-      void params.loadAssetsPage(params.assetsModal.page + 1, params.assetsModal.searchApplied)
-      return
-    }
-
-    if (params.assetsModal.open && !params.assetsModal.previewOpen && params.state.status === "success" && keyName === "left") {
-      if (!isThrottleWindowElapsed(params.lastPaginationKeyAtRef, PAGINATION_THROTTLE_MS)) {
-        return
-      }
-
-      if (params.assetsModal.loading || params.assetsModal.page <= 1) {
-        return
-      }
-
-      void params.loadAssetsPage(params.assetsModal.page - 1, params.assetsModal.searchApplied)
-      return
-    }
-
-    if (params.state.status === "success" && keyName === "right") {
-      if (!isThrottleWindowElapsed(params.lastPaginationKeyAtRef, PAGINATION_THROTTLE_MS)) {
-        return
-      }
-
-      if (params.state.transactionsLoading || params.state.transactionsPage >= params.state.transactionsTotalPages) {
-        return
-      }
-
-      void params.loadTransactionsPage(params.state.transactionsPage + 1)
-      return
-    }
-
-    if (params.state.status === "success" && keyName === "left") {
-      if (!isThrottleWindowElapsed(params.lastPaginationKeyAtRef, PAGINATION_THROTTLE_MS)) {
-        return
-      }
-
-      if (params.state.transactionsLoading || params.state.transactionsPage <= 1) {
-        return
-      }
-
-      void params.loadTransactionsPage(params.state.transactionsPage - 1)
-    }
-  })
+  }, [
+    assetsModal,
+    authMode,
+    chatEnabled,
+    chatOpen,
+    commandBarEnabled,
+    commandBarFocused,
+    copySelectedWallet,
+    helpModalOpen,
+    lastPaginationKeyAtRef,
+    loadAssetsPage,
+    loadTransactionsPage,
+    openAssetPreview,
+    renderer,
+    setAssetsModal,
+    setAuthError,
+    setAuthInput,
+    setChatOpen,
+    setChatScrollOffset,
+    setCommandBarFocused,
+    setHelpModalOpen,
+    setHideValues,
+    setWalletsModal,
+    state,
+    submitAuthInput,
+    walletsModal,
+  ])
 }

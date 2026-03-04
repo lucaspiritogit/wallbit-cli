@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRenderer, useTerminalDimensions } from "@opentui/react"
 import { BalanceList } from "./ui/balance-list"
+import { CommandBar } from "./ui/command-bar"
 import { Logo } from "./ui/logo"
 import type { AgentChatMessage } from "./ui/agent-chat-panel"
 import { WalletsModal } from "./ui/wallets-modal"
 import { runWallbitChat } from "./agent/chat-agent"
 import { sortWallets } from "./utils/wallets"
-import { useApiKeyPaste } from "./app/hooks/use-api-key-paste"
 import { useAppActions } from "./app/hooks/use-app-actions"
 import { useAppKeyboard } from "./app/hooks/use-app-keyboard"
 import { useWalletsStatusToast } from "./app/hooks/use-wallets-status-toast"
@@ -21,7 +21,7 @@ import { DashboardCompact } from "./app/views/dashboard-compact"
 import { DashboardFull } from "./app/views/dashboard-full"
 import { DashboardLoading } from "./app/views/dashboard-loading"
 import { HelpModal } from "./app/views/help-modal"
-import { getStoredAiProvider, getStoredOpenAiApiKey, setStoredAiProvider } from "./app/keychain"
+import { getStoredAiProvider, getStoredOpenAiApiKey, setStoredAiProvider, setStoredOpenAiApiKey } from "./app/keychain"
 import type { AppState, AssetsModalState, WalletsModalState } from "./app/types"
 
 type AiProvider = "openai" | "none"
@@ -66,6 +66,7 @@ export function App() {
     const envValue = process.env.OPENAI_API_KEY?.trim()
     return Boolean(envValue && envValue.length > 0)
   })
+  const [openAiKeyPromptOpen, setOpenAiKeyPromptOpen] = useState(false)
   const [aiProviderSelectionIndex, setAiProviderSelectionIndex] = useState(0)
   const [authInput, setAuthInput] = useState("")
   const [authError, setAuthError] = useState<string | null>(null)
@@ -74,11 +75,14 @@ export function App() {
   const [assetsModal, setAssetsModal] = useState<AssetsModalState>(INITIAL_ASSETS_MODAL_STATE)
   const [walletsModal, setWalletsModal] = useState<WalletsModalState>(INITIAL_WALLETS_MODAL_STATE)
   const [chatMessages, setChatMessages] = useState<AgentChatMessage[]>([])
-  const [chatInput, setChatInput] = useState("")
-  const [chatFocused, setChatFocused] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
   const [chatLoading, setChatLoading] = useState(false)
   const [chatError, setChatError] = useState<string | null>(null)
   const [chatScrollOffset, setChatScrollOffset] = useState(0)
+  const [commandInput, setCommandInput] = useState("")
+  const [commandBarFocused, setCommandBarFocused] = useState(false)
+  const [commandStatusMessage, setCommandStatusMessage] = useState<string | null>(null)
+  const [commandStatusType, setCommandStatusType] = useState<"info" | "error" | "success">("info")
   const lastPaginationKeyAtRef = useRef(0)
 
   const sortedWallets = useMemo(() => {
@@ -90,17 +94,21 @@ export function App() {
   }, [state])
 
   const chatVisibleRows = useMemo(() => Math.max(8, terminalDimensions.height - 15), [terminalDimensions.height])
-  const authMode = useMemo<"wallbit" | "ai-provider" | null>(() => {
+  const authMode = useMemo<"wallbit" | "ai-provider" | "openai-key" | null>(() => {
     if (apiKey === null) {
       return "wallbit"
     }
 
     if (aiProvider === null) {
+      if (openAiKeyPromptOpen) {
+        return "openai-key"
+      }
+
       return "ai-provider"
     }
 
     return null
-  }, [apiKey, aiProvider])
+  }, [apiKey, aiProvider, openAiKeyPromptOpen])
 
   useEffect(() => {
     if (openAiApiKey !== null) {
@@ -150,7 +158,7 @@ export function App() {
         }
 
         setAiProvider(storedProvider)
-        setAiProviderSelectionIndex(storedProvider === "openai" ? 0 : 1)
+        setAiProviderSelectionIndex(storedProvider === "none" ? 0 : 1)
       } catch {
       }
     }
@@ -173,28 +181,49 @@ export function App() {
       setAuthError(null)
       setApiKey(enteredValue)
       setAuthInput("")
+      return
+    }
+
+    if (authMode === "openai-key") {
+      try {
+        await setStoredOpenAiApiKey(enteredValue)
+        await setStoredAiProvider("openai")
+        setOpenAiApiKey(enteredValue)
+        setOpenAiKeyLoaded(true)
+        setAiProvider("openai")
+        setOpenAiKeyPromptOpen(false)
+        setAuthInput("")
+        setAuthError(null)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to store OpenAI API key."
+        setAuthError(message)
+      }
     }
   }, [authInput, authMode])
 
   const submitAiProviderSelection = useCallback(async (): Promise<void> => {
     try {
-      if (aiProviderSelectionIndex === 0) {
+      if (aiProviderSelectionIndex === 1) {
         if (!openAiKeyLoaded) {
           setAuthError("Checking keychain for OpenAI key. Try again in a second.")
           return
         }
 
         if (openAiApiKey === null) {
-          setAuthError("OpenAI key not found. Set OPENAI_API_KEY or save it to keychain, or continue without AI.")
+          setOpenAiKeyPromptOpen(true)
+          setAuthInput("")
+          setAuthError("OpenAI key required. Paste it and press enter to save.")
           return
         }
 
+        setOpenAiKeyPromptOpen(false)
         setAuthError(null)
         await setStoredAiProvider("openai")
         setAiProvider("openai")
         return
       }
 
+      setOpenAiKeyPromptOpen(false)
       setAuthError(null)
       await setStoredAiProvider("none")
       setAiProvider("none")
@@ -205,6 +234,8 @@ export function App() {
   }, [aiProviderSelectionIndex, openAiApiKey, openAiKeyLoaded])
 
   const handleAiProviderChange = useCallback((index: number) => {
+    setOpenAiKeyPromptOpen(false)
+    setAuthInput("")
     setAiProviderSelectionIndex(index)
     setAuthError(null)
   }, [])
@@ -258,13 +289,12 @@ export function App() {
     ].join(", ")
   }, [state])
 
-  const sendChatMessage = useCallback(async (value?: string): Promise<void> => {
-    const enteredMessage = (value ?? chatInput).trim()
+  const sendChatMessage = useCallback(async (value: string): Promise<void> => {
+    const enteredMessage = value.trim()
     if (!enteredMessage || chatLoading) {
       return
     }
 
-    setChatInput("")
     setChatError(null)
     appendChatMessage("user", enteredMessage)
     setChatLoading(true)
@@ -283,17 +313,64 @@ export function App() {
     } finally {
       setChatLoading(false)
     }
-  }, [apiKey, appendChatMessage, chatInput, chatLoading, getChatContext, openAiApiKey])
+  }, [apiKey, appendChatMessage, chatLoading, getChatContext, openAiApiKey])
 
-  const handleChatInputChange = useCallback((value: string) => {
-    setChatInput(value)
-  }, [])
-
-  const handleChatInputSubmit = useCallback(
+  const handleCommandSubmit = useCallback(
     (value: string) => {
-      void sendChatMessage(value)
+      const isAiEnabled = aiProvider === "openai" && openAiApiKey !== null
+      const enteredValue = value.trim()
+      if (enteredValue.length === 0) {
+        return
+      }
+
+      setCommandInput("")
+      setCommandStatusType("info")
+      setCommandStatusMessage(null)
+
+      if (enteredValue.startsWith("?")) {
+        const prompt = enteredValue.slice(1).trim()
+        if (prompt.length === 0) {
+          setCommandStatusType("error")
+          setCommandStatusMessage("Add a question after ?. Example: ?why is BTC down")
+          return
+        }
+
+        if (!isAiEnabled) {
+          setCommandStatusType("error")
+          setCommandStatusMessage("Agent is disabled. Enable OpenAI in auth settings.")
+          return
+        }
+
+        setChatOpen(true)
+        void sendChatMessage(prompt)
+        return
+      }
+
+      if (enteredValue.startsWith("!")) {
+        const actionText = enteredValue.slice(1).trim()
+        if (actionText.length === 0) {
+          setCommandStatusType("error")
+          setCommandStatusMessage("Add an action after !. Example: !buy BTC 200")
+          return
+        }
+
+        if (actionText.toLowerCase() === "help") {
+          setHelpModalOpen(true)
+          setCommandStatusType("info")
+          setCommandStatusMessage("Opened help.")
+          return
+        }
+
+        setCommandStatusType("success")
+        setCommandStatusMessage(`Queued action: ${actionText}`)
+        appendChatMessage("system", `action queued: ${actionText}`)
+        return
+      }
+
+      setCommandStatusType("error")
+      setCommandStatusMessage("Commands must start with ? (agent) or ! (action).")
     },
-    [sendChatMessage],
+    [aiProvider, appendChatMessage, openAiApiKey, sendChatMessage],
   )
 
   const handleAssetsSearchInputChange = useCallback((value: string) => {
@@ -372,19 +449,13 @@ export function App() {
     setWalletsModal,
   })
 
-  useApiKeyPaste({
-    authMode,
-    renderer,
-    setAuthInput,
-    setAuthError,
-  })
-
   const shouldUseCompactLayout =
     terminalDimensions.height < COMPACT_MIN_HEIGHT || terminalDimensions.width < COMPACT_MIN_WIDTH
   const shouldUseMinimalCompactLayout = terminalDimensions.height < COMPACT_MIN_HEIGHT
   const shouldShowLogo = terminalDimensions.width >= DASHBOARD_HIDE_LOGO_WIDTH
   const aiEnabled = aiProvider === "openai" && openAiApiKey !== null
   const chatEnabled = !shouldUseCompactLayout && state.status === "success" && aiEnabled
+  const commandBarEnabled = authMode === null && state.status === "success" && !helpModalOpen && !assetsModal.open && !walletsModal.open
   const aiStatusLabel = aiEnabled ? "OpenAI" : "Disabled"
 
   useAppKeyboard({
@@ -408,11 +479,14 @@ export function App() {
     loadTransactionsPage: appActions.loadTransactionsPage,
     loadAssetsPage: appActions.loadAssetsPage,
     openAssetPreview: appActions.openAssetPreview,
-    chatFocused,
-    setChatFocused,
+    chatOpen,
+    setChatOpen,
     chatEnabled,
     chatScrollOffset,
     setChatScrollOffset,
+    commandBarEnabled,
+    commandBarFocused,
+    setCommandBarFocused,
   })
 
   const body = useMemo(() => {
@@ -436,10 +510,16 @@ export function App() {
   }, [hideValues, state])
 
   useEffect(() => {
-    if (!chatEnabled && chatFocused) {
-      setChatFocused(false)
+    if (!chatEnabled && chatOpen) {
+      setChatOpen(false)
     }
-  }, [chatEnabled, chatFocused])
+  }, [chatEnabled, chatOpen])
+
+  useEffect(() => {
+    if (!commandBarEnabled && commandBarFocused) {
+      setCommandBarFocused(false)
+    }
+  }, [commandBarEnabled, commandBarFocused])
 
   const mainContent = useMemo(() => {
     if (authMode !== null) {
@@ -522,13 +602,9 @@ export function App() {
         state={state}
         hideValues={hideValues}
         showLogo={shouldShowLogo}
-        showAgentChat={aiEnabled}
+        showAgentChat={chatOpen && aiEnabled}
         aiStatusLabel={aiStatusLabel}
         chatMessages={chatMessages}
-        chatInput={chatInput}
-        onChatInputChange={handleChatInputChange}
-        onChatInputSubmit={handleChatInputSubmit}
-        chatFocused={chatFocused}
         chatLoading={chatLoading}
         chatError={chatError}
         chatVisibleRows={chatVisibleRows}
@@ -545,18 +621,15 @@ export function App() {
     aiEnabled,
     body,
     chatError,
-    chatFocused,
-    chatInput,
     chatLoading,
     chatMessages,
+    chatOpen,
     chatScrollOffset,
     chatVisibleRows,
     handleAiProviderChange,
     handleAiProviderSubmit,
     handleAssetsSearchInputChange,
     handleAssetsSearchSubmit,
-    handleChatInputChange,
-    handleChatInputSubmit,
     handleWalletCopy,
     handleWalletSelectionChange,
     helpModalOpen,
@@ -573,11 +646,20 @@ export function App() {
   return (
     <box flexDirection="column" width="100%" height="100%" padding={1}>
       {mainContent}
-      <box marginTop={1}>
-        <text>
-          <span fg="#6B7280">Press ? for help. Ctrl+C to exit.</span>
-        </text>
-      </box>
+      {authMode === null && state.status === "success" ? (
+        <box marginTop={1}>
+          <CommandBar
+            value={commandInput}
+            onInputChange={setCommandInput}
+            onSubmit={handleCommandSubmit}
+            focused={commandBarFocused}
+            enabled={commandBarEnabled}
+            loading={chatLoading}
+            statusMessage={commandStatusMessage}
+            statusType={commandStatusType}
+          />
+        </box>
+      ) : null}
     </box>
   )
 }
