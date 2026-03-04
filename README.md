@@ -20,7 +20,7 @@ Terminal dashboard for Wallbit.
 
 ## Security disclosure
 
-The API keys you use are never stored on an external server or log in anyway. The Wallbit CLI will request the API key on startup everytime, and the optional AI provider token is stored in your OS Keychain / Secret manager.
+The API keys you use are never stored on an external server or log in any way. The Wallbit CLI will request the API key on startup everytime, and the optional AI provider token is stored in your OS Keychain / Secret manager.
 
 ### Keychain in macOS
 
